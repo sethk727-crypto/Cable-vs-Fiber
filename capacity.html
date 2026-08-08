@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050608">
+<meta name="description" content="Live network capacity simulation — a dedicated fiber star vs cable's shared neighborhood trunk, by time of day.">
+<meta property="og:title" content="Network Capacity Comparison — live">
+<meta property="og:description" content="Watch a street share one cable trunk while fiber homes each keep their own line — morning, afternoon, and evening peak.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='22' cy='32' r='9' fill='%23ffc800'/><circle cx='42' cy='32' r='9' fill='%233987e5'/></svg>">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Network Capacity Comparison — live</title>
+<style>
+  :root{
+    --bg:#050608;
+    --surface:#12161d;
+    --surface-2:#1a202a;
+    --ink:#f2f4f8;
+    --ink-2:#bcc2cd;
+    --muted:#99a0ab;
+    --hairline:rgba(255,255,255,.09);
+    --cable:#3987e5;
+    --mark:#c98500;          /* fiber data mark — set per brand, validated */
+    --accent:#ffc800;        /* brand chrome — set per brand */
+    --accent-ink:#191100;
+    --good:#2fb52f;
+    --bad:#e05252;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);color:var(--ink);
+    font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;
+    min-height:100dvh;
+    padding:calc(10px + env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom));
+  }
+  a{color:inherit}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+  .col{width:100%;max-width:640px;margin:0 auto;display:flex;flex-direction:column;flex:1}
+
+  /* top bar */
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .round{
+    width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+    background:var(--surface);border:1px solid var(--hairline);font-size:16px;text-decoration:none;
+  }
+  .round:active{transform:translateY(1px)}
+
+  /* title */
+  .eyebrow{
+    font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:6px;
+  }
+  .eyebrow .b{color:var(--accent)}
+  h1{font-size:clamp(26px,6.6vw,34px);line-height:1.12;letter-spacing:-.02em;font-weight:800;margin-bottom:8px}
+
+  /* stage */
+  .stage{
+    position:relative;flex:1;min-height:300px;margin-top:6px;
+    border:1px solid var(--hairline);border-radius:20px;background:#0a0d12;overflow:hidden;
+  }
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%}
+  .sim-chip{
+    position:absolute;display:grid;place-items:center;pointer-events:none;white-space:nowrap;
+    background:#232936;border:1px solid rgba(255,255,255,.24);border-radius:10px;
+    font-weight:700;color:var(--ink);
+  }
+  .sim-chip.hub{border-color:var(--accent);box-shadow:0 0 14px -6px var(--accent)}
+  .panel-lab{position:absolute;left:14px;font-size:11.5px;color:var(--muted);font-weight:600}
+
+  /* stats */
+  .stats{display:flex;align-items:stretch;justify-content:center;gap:0;margin:16px 0 6px;min-height:64px}
+  .stat{flex:1;text-align:center;padding:0 8px}
+  .stat + .stat{border-left:1px solid var(--hairline)}
+  .stat .lab{font-size:10.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+  .stat .val{font-size:21px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
+  .stat .val small{font-size:12px;font-weight:700;color:var(--muted)}
+  .st-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px}
+  .st-good{background:var(--good)} .st-bad{background:var(--bad)} .st-mid{background:var(--muted)}
+  .rows{display:none;flex-direction:column;gap:8px;margin:14px 0 6px}
+  .rows .r{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink-2);flex-wrap:wrap;justify-content:center}
+  .rows .r b{color:var(--ink)}
+  .rows .swatch{width:10px;height:10px;border-radius:50%;flex:none}
+  .ms{font-variant-numeric:tabular-nums}
+  body.both .stats{display:none}
+  body.both .rows{display:flex}
+
+  /* controls */
+  .controls{margin-top:8px}
+  .stepper{display:flex;align-items:center;gap:8px;margin-top:10px}
+  .stepper .lab{flex:1;font-size:14px;font-weight:600;color:var(--ink-2)}
+  .arrow{
+    width:46px;height:46px;border-radius:14px;flex:none;
+    background:var(--surface);border:1px solid var(--hairline);
+    display:grid;place-items:center;font-size:17px;color:var(--ink);
+  }
+  .arrow:active{transform:translateY(1px)}
+  .stepper .val{
+    min-width:150px;text-align:center;font-weight:700;font-size:14px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:12px 10px;
+  }
+  .stepper .val.brand{color:var(--accent)}
+  .autorow{display:flex;justify-content:center;margin-top:14px}
+  .auto{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:13px;font-weight:700;color:var(--ink-2);
+    border:1px solid var(--hairline);border-radius:999px;padding:9px 16px;min-height:40px;
+  }
+  .auto[aria-pressed="true"]{border-color:var(--accent);color:var(--ink)}
+  .auto[aria-pressed="true"] .dot{background:var(--accent)}
+  .auto .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+
+  .foot{font-size:11px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.5}
+
+  .toast{
+    position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);
+    background:var(--surface-2);border:1px solid var(--hairline);border-radius:999px;
+    padding:9px 16px;font-size:13px;font-weight:600;color:var(--ink);
+    opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:99;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="col">
+
+  <div class="top">
+    <a class="round" href="index.html" aria-label="Back to the doorstep demo">✕</a>
+    <button class="round" id="shareBtn" aria-label="Share this simulation">⤴</button>
+  </div>
+
+  <p class="eyebrow"><span class="b" id="brandLine">Brightspeed Fiber</span> vs Spectrum · live simulation</p>
+  <h1>Network Capacity Comparison</h1>
+
+  <div class="stage" id="stage"><canvas id="cv" role="img"></canvas></div>
+
+  <div class="stats" id="stats" aria-live="polite">
+    <div class="stat"><div class="lab">Status</div><div class="val" id="stStatus"></div></div>
+    <div class="stat"><div class="lab">Latency</div><div class="val ms" id="stLat"></div></div>
+    <div class="stat"><div class="lab">Per home</div><div class="val ms" id="stHome"></div></div>
+  </div>
+  <div class="rows" id="rows" aria-live="polite"></div>
+
+  <div class="controls">
+    <div class="stepper">
+      <span class="lab">Connection Type</span>
+      <button class="arrow" id="connPrev" aria-label="Previous connection type">‹</button>
+      <span class="val" id="connVal">Fiber</span>
+      <button class="arrow" id="connNext" aria-label="Next connection type">›</button>
+    </div>
+    <div class="stepper">
+      <span class="lab">Time of Day</span>
+      <button class="arrow" id="todPrev" aria-label="Earlier time of day">‹</button>
+      <span class="val" id="todVal">Morning</span>
+      <button class="arrow" id="todNext" aria-label="Later time of day">›</button>
+    </div>
+    <div class="stepper">
+      <span class="lab">Fiber Brand</span>
+      <button class="arrow" id="brandPrev" aria-label="Previous fiber brand">‹</button>
+      <span class="val brand" id="brandVal">Brightspeed</span>
+      <button class="arrow" id="brandNext" aria-label="Next fiber brand">›</button>
+    </div>
+    <div class="autorow">
+      <button class="auto" id="autoBtn" aria-pressed="false"><span class="dot"></span> Auto demo — plays the reveal</button>
+    </div>
+  </div>
+
+  <p class="foot" id="foot">Illustrative simulation — congestion varies by node; latency and per-home figures are scenario examples with an example 600 Mbps fiber / 500 Mbps cable plan. Not an official page of any provider shown.</p>
+</div>
+
+<div class="toast" id="toast">Link copied</div>
+
+<script>
+/* ============ brands (fiber side) — marks validated vs Spectrum blue ============ */
+const BRANDS = [
+  { key:"brightspeed", name:"Brightspeed Fiber", short:"Brightspeed", mark:"#c98500", accent:"#ffc800", accentInk:"#191100" },
+  { key:"tmobile",     name:"T-Mobile Fiber",    short:"T-Mobile",    mark:"#e20074", accent:"#e20074", accentInk:"#ffffff" },
+];
+const CABLE = { name:"Spectrum", mark:"#3987e5" };
+
+const SCEN = {
+  fiber: { latency:{morning:10, afternoon:9, evening:12}, perHome:600 },
+  cable: {
+    latency:{morning:28, afternoon:54, evening:145},
+    status:{morning:"Stable", afternoon:"Average", evening:"Congested"},
+    delivered:{morning:[.85,1], afternoon:[.55,.85], evening:[.2,.5]}, plan:500,
+  },
+};
+
+const $ = s => document.querySelector(s);
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const CONNS = ["Fiber","Cable","Both"], TODS = ["Morning","Afternoon","Evening Peak"], TKEY = ["morning","afternoon","evening"];
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+/* ============ state (deep-linkable) ============ */
+let brandIdx = 0, conn = 0, tod = 0;
+try {
+  const q = new URLSearchParams(location.search);
+  const b = (q.get("brand") || localStorage.getItem("fiberBrand") || "").toLowerCase();
+  const bi = BRANDS.findIndex(x=>x.key===b); if (bi>=0) brandIdx = bi;
+  const c = (q.get("conn")||"").toLowerCase(); const ci = ["fiber","cable","both"].indexOf(c); if (ci>=0) conn = ci;
+  const t = (q.get("tod")||"").toLowerCase();  const ti = ["morning","afternoon","evening"].indexOf(t); if (ti>=0) tod = ti;
+} catch(e){}
+const BRAND = () => BRANDS[brandIdx];
+
+function syncUrl(){
+  try{
+    localStorage.setItem("fiberBrand", BRAND().key);
+    const q = new URLSearchParams();
+    q.set("brand", BRAND().key);
+    q.set("conn", ["fiber","cable","both"][conn]);
+    q.set("tod", TKEY[tod]);
+    history.replaceState(null, "", location.pathname + "?" + q);
+  }catch(e){}
+}
+
+/* ============ simulation engine ============ */
+const stage = $("#stage"), cv = $("#cv"), ctx = cv.getContext("2d");
+const HOMES = 5;
+let panels = [], particles = [], acc = [];
+let active = false, inView = true, raf = 0, last = 0, lastW = 0, lastH = 0;
+const load = () => ({morning:.22, afternoon:.55, evening:1})[TKEY[tod]];
+
+function quad(a,c,b,N=24){
+  const o=[]; for(let i=0;i<=N;i++){ const t=i/N,u=1-t;
+    o.push({x:u*u*a.x+2*u*t*c.x+t*t*b.x, y:u*u*a.y+2*u*t*c.y+t*t*b.y}); }
+  return o;
+}
+function mkPath(pts){
+  const cum=[0];
+  for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+  return {pts,cum,len:cum[cum.length-1]};
+}
+function pointAt(P,s){
+  s=Math.max(0,Math.min(P.len,s));
+  let i=1; while(P.cum[i]<s) i++;
+  const t=(s-P.cum[i-1])/((P.cum[i]-P.cum[i-1])||1);
+  return {x:lerp(P.pts[i-1].x,P.pts[i].x,t), y:lerp(P.pts[i-1].y,P.pts[i].y,t)};
+}
+function addChip(txt,x,y,w2,h2,hub,small){
+  const d=document.createElement("div");
+  d.className="sim-chip"+(hub?" hub":"");
+  d.style.cssText=`left:${x}px;top:${y}px;width:${w2}px;height:${h2}px;font-size:${small?11:13}px`;
+  d.textContent=txt; stage.append(d);
+}
+function addLab(txt,y){
+  const d=document.createElement("div"); d.className="panel-lab";
+  d.style.top=y+"px"; d.textContent=txt; stage.append(d);
+}
+
+function buildLayout(){
+  const w = stage.clientWidth, H = stage.clientHeight;
+  lastW = w; lastH = H;
+  const dpr = Math.min(2.5, window.devicePixelRatio||1);
+  cv.width = Math.round(w*dpr); cv.height = Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  stage.querySelectorAll(".sim-chip,.panel-lab").forEach(n=>n.remove());
+  panels = [];
+  document.body.classList.toggle("both", conn===2);
+
+  const mk = (net, y0, y1, small) => {
+    const cw = small?54:64, ch = small?26:32, hw = small?58:68, hh = small?28:34, pad = small?17:24;
+    const hubY = (y0+y1)/2, ax = 12+hw+4, bx = w-cw-16;
+    const homes = Array.from({length:HOMES},(_,i)=>({x:bx, y:lerp(y0+pad, y1-pad, i/(HOMES-1))}));
+    const p = {net, hubY, small, k:(bx-ax)/300, ax, fiber:[], cable:[], sx:0};
+    if (net==="fiber")
+      p.fiber = homes.map(h=>mkPath(quad({x:ax,y:hubY},{x:lerp(ax,bx,.45),y:lerp(hubY,h.y,.3)},h)));
+    else {
+      p.sx = bx-(small?48:64);
+      const trunkLen = p.sx-ax;
+      p.cable = homes.map(h=>{
+        const P = mkPath([{x:ax,y:hubY}, ...quad({x:p.sx,y:hubY},{x:p.sx+(small?24:34),y:lerp(hubY,h.y,.8)},h)]);
+        P.trunkLen = trunkLen; return P;
+      });
+    }
+    addChip("ISP Hub", 12, hubY-hh/2, hw, hh, true, small);
+    homes.forEach(h=>addChip("Home", w-cw-12, h.y-ch/2, cw, ch, false, small));
+    panels.push(p);
+  };
+
+  if (conn===0){ mk("fiber", 8, H-30, false); addLab("Dedicated Star Topology — one strand each", H-26); }
+  else if (conn===1){ mk("cable", 8, H-30, false); addLab("Shared Bus Topology — one trunk for the street", H-26); }
+  else {
+    const half = (H-8)/2;
+    mk("fiber", 6, half-22, true);        addLab(BRAND().short+" fiber · dedicated star", half-20);
+    mk("cable", half+8, H-24, true);      addLab("Spectrum cable · shared bus", H-20);
+  }
+  reseed();
+}
+
+const speeds = p => {
+  const L = load(), k = p.k;
+  return { f:120*k, cTrunk:135*k*(1-.74*L), cBranch:112*k, cUp:42*k };
+};
+const rates = p => {
+  const L = load();
+  return p.net==="fiber" ? {down:1.1*HOMES, up:.5*HOMES} : {down:2.2+6.8*L, up:.55};
+};
+function spawnOne(p, dir){
+  if (particles.length > 180) return;
+  const paths = p.net==="fiber" ? p.fiber : p.cable;
+  const path = paths[(Math.random()*paths.length)|0];
+  const j = (Math.random()*2-1)*(p.small?2.6:3.6);
+  particles.push({p, path, dir, j, s: dir>0 ? 0 : path.len});
+}
+function step(dt){
+  panels.forEach((p,i)=>{
+    const r = rates(p), a = acc[i];
+    a.d += r.down*dt; a.u += r.up*dt;
+    while (a.d>=1){ a.d--; spawnOne(p,+1); }
+    while (a.u>=1){ a.u--; spawnOne(p,-1); }
+  });
+  const keep=[];
+  for (const q of particles){
+    const sp = speeds(q.p);
+    const v = q.p.net==="fiber" ? sp.f
+            : q.dir<0 ? sp.cUp
+            : (q.s < q.path.trunkLen ? sp.cTrunk : sp.cBranch);
+    q.s += v*q.dir*dt;
+    if (q.dir>0 ? q.s < q.path.len : q.s > 0) keep.push(q);
+  }
+  particles = keep;
+}
+function reseed(){
+  particles = []; acc = panels.map(()=>({d:.9,u:.4}));
+  for (let i=0;i<80;i++) step(.06);
+  draw();
+}
+function draw(){
+  const w = lastW, H = lastH;
+  ctx.clearRect(0,0,w,H);
+  ctx.lineCap="round"; ctx.lineJoin="round";
+  for (const p of panels){
+    const laneW = p.small?7:10;
+    ctx.strokeStyle = "#20262f";
+    if (p.net==="fiber"){
+      ctx.lineWidth = laneW;
+      for (const P of p.fiber){
+        ctx.beginPath(); P.pts.forEach((pt,i)=> i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y)); ctx.stroke();
+      }
+    } else {
+      ctx.lineWidth = p.small?11:15;
+      ctx.beginPath(); ctx.moveTo(p.ax, p.hubY); ctx.lineTo(p.sx, p.hubY); ctx.stroke();
+      ctx.lineWidth = laneW;
+      for (const P of p.cable){
+        ctx.beginPath();
+        P.pts.slice(1).forEach((pt,i)=> i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));
+        ctx.stroke();
+      }
+      const ns = p.small?11:15;
+      ctx.fillStyle="#232936"; ctx.strokeStyle="rgba(255,255,255,.28)"; ctx.lineWidth=1;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(p.sx-ns/2, p.hubY-ns/2, ns, ns, 4); else ctx.rect(p.sx-ns/2, p.hubY-ns/2, ns, ns);
+      ctx.fill(); ctx.stroke();
+    }
+  }
+  for (const q of particles){
+    const pt = pointAt(q.path, q.s);
+    let y = pt.y;
+    if (q.p.net==="cable"){
+      const fade = q.s < q.path.trunkLen ? 1 : Math.max(0, 1-(q.s-q.path.trunkLen)/40);
+      y += q.j*fade;
+    }
+    const col = q.p.net==="fiber" ? BRAND().mark : CABLE.mark;
+    const r = q.p.small?2.6:3.6;
+    ctx.fillStyle = col;
+    ctx.globalAlpha=.22; ctx.beginPath(); ctx.arc(pt.x,y,r+2.8,0,7); ctx.fill();
+    ctx.globalAlpha=1;   ctx.beginPath(); ctx.arc(pt.x,y,r,0,7); ctx.fill();
+  }
+}
+
+/* ============ live stats (values wobble like telemetry) ============ */
+const jitter = (v, amt) => Math.round(v + (Math.random()*2-1)*amt);
+function statusBits(){
+  const t = TKEY[tod];
+  const cSt = SCEN.cable.status[t];
+  const cCls = cSt==="Congested"?"st-bad":cSt==="Average"?"st-mid":"st-good";
+  const dv = SCEN.cable.delivered[t];
+  const cLo = Math.round(SCEN.cable.plan*dv[0]/10)*10, cHi = Math.round(SCEN.cable.plan*dv[1]/10)*10;
+  return {t, cSt, cCls, cLo, cHi};
+}
+function renderStats(liveWobble){
+  const {t, cSt, cCls, cLo, cHi} = statusBits();
+  const fLat = liveWobble ? jitter(SCEN.fiber.latency[t],1) : SCEN.fiber.latency[t];
+  const cLat = liveWobble ? jitter(SCEN.cable.latency[t], tod===2?10:3) : SCEN.cable.latency[t];
+  const cNow = liveWobble ? jitter((cLo+cHi)/2,(cHi-cLo)/2.4) : Math.round((cLo+cHi)/2);
+  if (conn===2){
+    $("#rows").innerHTML =
+      `<div class="r"><span class="swatch" style="background:${BRAND().mark}"></span><b>${BRAND().name}</b>`+
+      `<span><span class="st-dot st-good"></span>Optimal</span><span class="ms"><b>${fLat} ms</b></span>`+
+      `<span>· ${SCEN.fiber.perHome} Mbps per home</span></div>`+
+      `<div class="r"><span class="swatch" style="background:${CABLE.mark}"></span><b>${CABLE.name}</b>`+
+      `<span><span class="st-dot ${cCls}"></span>${cSt}</span><span class="ms"><b>${cLat} ms</b></span>`+
+      `<span>· ≈${cNow} of ${SCEN.cable.plan} Mbps per home</span></div>`;
+  } else if (conn===0){
+    $("#stStatus").innerHTML = `<span class="st-dot st-good"></span>Optimal`;
+    $("#stLat").innerHTML = `${fLat}<small> ms</small>`;
+    $("#stHome").innerHTML = `${SCEN.fiber.perHome}<small> Mbps</small>`;
+  } else {
+    $("#stStatus").innerHTML = `<span class="st-dot ${cCls}"></span>${cSt}`;
+    $("#stLat").innerHTML = `${cLat}<small> ms</small>`;
+    $("#stHome").innerHTML = `≈${cNow}<small> Mbps</small>`;
+  }
+  cv.setAttribute("aria-label",
+    `Simulation, ${TODS[tod].toLowerCase()}, showing ${CONNS[conn].toLowerCase()}. `+
+    (conn!==1?`${BRAND().name}: dedicated star, optimal, about ${SCEN.fiber.latency[t]} ms, ${SCEN.fiber.perHome} megabits per home. `:"")+
+    (conn!==0?`${CABLE.name} cable: shared bus, ${cSt.toLowerCase()}, about ${SCEN.cable.latency[t]} ms, roughly ${cLo} to ${cHi} megabits per home.`:""));
+}
+if (!reduced) setInterval(()=>{ if (!document.hidden) renderStats(true); }, 950);
+
+/* ============ render / state changes ============ */
+function applyBrand(){
+  const B = BRAND();
+  document.documentElement.style.setProperty("--mark", B.mark);
+  document.documentElement.style.setProperty("--accent", B.accent);
+  document.documentElement.style.setProperty("--accent-ink", B.accentInk);
+  $("#brandLine").textContent = B.name;
+  $("#brandVal").textContent = B.short;
+  document.title = `Network Capacity — ${B.name} vs Spectrum`;
+}
+function render(layoutChanged){
+  $("#connVal").textContent = CONNS[conn];
+  $("#todVal").textContent = TODS[tod];
+  applyBrand();
+  if (layoutChanged) buildLayout();
+  else if (reduced) reseed();
+  renderStats(false);
+  syncUrl();
+}
+
+/* ============ steppers + auto demo ============ */
+let autoTimer = 0;
+const TOUR = [ [0,0], [1,0], [1,2], [2,2] ];   // [conn, tod]: fiber calm → cable calm → cable jam → both
+let tourIdx = 0;
+function stopAuto(){
+  if (!autoTimer) return;
+  clearInterval(autoTimer); autoTimer = 0;
+  $("#autoBtn").setAttribute("aria-pressed","false");
+}
+function startAuto(){
+  tourIdx = 0;
+  const play = ()=>{ [conn, tod] = TOUR[tourIdx]; tourIdx = (tourIdx+1)%TOUR.length; render(true); };
+  play();
+  autoTimer = setInterval(play, 4200);
+  $("#autoBtn").setAttribute("aria-pressed","true");
+}
+$("#autoBtn").addEventListener("click", ()=> autoTimer ? stopAuto() : startAuto());
+const manual = fn => ()=>{ stopAuto(); fn(); };
+$("#connPrev").addEventListener("click", manual(()=>{ conn=(conn+2)%3; render(true); }));
+$("#connNext").addEventListener("click", manual(()=>{ conn=(conn+1)%3; render(true); }));
+$("#todPrev").addEventListener("click", manual(()=>{ tod=(tod+2)%3; render(false); }));
+$("#todNext").addEventListener("click", manual(()=>{ tod=(tod+1)%3; render(false); }));
+$("#brandPrev").addEventListener("click", manual(()=>{ brandIdx=(brandIdx+BRANDS.length-1)%BRANDS.length; render(false); draw(); }));
+$("#brandNext").addEventListener("click", manual(()=>{ brandIdx=(brandIdx+1)%BRANDS.length; render(false); draw(); }));
+
+/* ============ share ============ */
+$("#shareBtn").addEventListener("click", async ()=>{
+  const data = { title: document.title, url: location.href };
+  try {
+    if (navigator.share) await navigator.share(data);
+    else {
+      await navigator.clipboard.writeText(location.href);
+      const t = $("#toast"); t.classList.add("show");
+      setTimeout(()=>t.classList.remove("show"), 1800);
+    }
+  } catch(e){}
+});
+
+/* ============ loop ============ */
+function frame(now){
+  if (!active){ raf = 0; return; }
+  const dt = Math.min(.05,(now-last)/1000)||.016; last = now;
+  step(dt); draw();
+  raf = requestAnimationFrame(frame);
+}
+function setActive(on){
+  on = on && inView && !document.hidden && !reduced;
+  if (on===active) return;
+  active = on;
+  if (on){ last = performance.now(); raf = requestAnimationFrame(frame); }
+}
+document.addEventListener("visibilitychange", ()=>setActive(true));
+if ("ResizeObserver" in window)
+  new ResizeObserver(()=>{
+    if (stage.clientWidth!==lastW || stage.clientHeight!==lastH){ buildLayout(); }
+  }).observe(stage);
+
+render(true);
+setActive(true);
+</script>
+</body>
+</html>
