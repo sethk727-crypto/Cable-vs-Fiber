@@ -9,7 +9,32 @@ at the doorstep. The rep talks; the visual proves.
 | File | What it is |
 |---|---|
 | `index.html` | The demo itself — one self-contained file, zero dependencies, works offline |
+| `capacity.html` | Standalone full-screen **Network Capacity Comparison** — the live topology simulator as its own app-style screen (linked from the demo's simulator card, ✕ returns to the demo) |
 | `prompts/d2d-visual-master-prompt.md` | The master system prompt (SaaS conversion architecture adapted for d2d visuals) used to design this page — paste into Claude to generate variants for other markets/providers |
+| `vercel.json` | Zero-build static deploy config |
+
+## Fiber brand switcher (Brightspeed / T-Mobile Fiber)
+
+Both pages support a **fiber brand**: `Brightspeed Fiber` (amber) or
+`T-Mobile Fiber` (magenta `#E20074` — validated colorblind-safe against
+Spectrum blue, worst-pair CVD ΔE 19.3). Switching the brand restyles marks,
+accents, the CTA, and all wording (legends, race lanes, table headers, SMS
+text).
+
+- On `capacity.html`: use the **Fiber Brand** stepper.
+- Anywhere: deep-link with `?brand=tmobile` or `?brand=brightspeed`.
+- The choice persists on the device (localStorage) and is shared between the
+  demo and the capacity page.
+
+## The capacity page
+
+`capacity.html` mirrors the reference "Network Capacity Comparison" screen and
+goes further: live particle physics, **Both** mode (star and bus running side
+by side), Connection Type / Time of Day / Fiber Brand steppers, live-wobbling
+STATUS · LATENCY · PER HOME telemetry, an **Auto demo** that plays the reveal
+arc (fiber calm → cable calm → cable jam → both), a Share button
+(native share sheet or copy-link), and shareable URL state
+(`?brand=…&conn=…&tod=…`).
 
 ## The demo, in 90 seconds
 

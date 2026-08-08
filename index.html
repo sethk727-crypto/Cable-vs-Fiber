@@ -29,9 +29,10 @@
     --axis:#39414e;
 
     /* series identity — validated (CVD + contrast) on both surfaces */
-    --fiber:#c98500;         /* Brightspeed marks */
+    --fiber:#c98500;         /* fiber-brand marks (Brightspeed amber / T-Mobile magenta via JS) */
     --cable:#3987e5;         /* Spectrum marks */
     --brand:#ffc800;         /* UI chrome only (CTA, accents) — never a data mark */
+    --brand-ink:#191100;     /* text on --brand */
 
     /* status — always icon + word, never color alone */
     --good:#2fb52f;
@@ -248,6 +249,10 @@
     min-width:132px;text-align:center;font-size:13.5px;font-weight:700;
     background:var(--surface-2);border:1px solid var(--hairline);border-radius:12px;padding:11px 10px;
   }
+  .open-full{
+    display:inline-block;margin-top:12px;font-size:12.5px;font-weight:700;color:var(--ink-2);
+    border:1px solid var(--hairline);border-radius:999px;padding:8px 14px;text-decoration:none;min-height:36px;
+  }
 
   /* scenarios */
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
@@ -312,7 +317,7 @@
     min-height:48px;border-radius:14px;font-size:14.5px;font-weight:700;
     text-decoration:none;text-align:center;padding:10px 12px;
   }
-  .btn-primary{background:var(--brand);color:#191100}
+  .btn-primary{background:var(--brand);color:var(--brand-ink)}
   .btn-primary:active{transform:translateY(1px)}
   .btn-ghost{border:1px solid var(--hairline);color:var(--ink);background:var(--surface)}
 
@@ -525,6 +530,7 @@
         <button class="arrow" id="todNext" aria-label="Later time of day">›</button>
       </div>
       <p class="note"><b>Fiber</b> is a star: your own strand of glass, hub to home — light both ways, so upstream dots move as fast as downstream. <b>Cable</b> is a bus: one copper trunk the street shares, split at a node — and its upstream dots crawl. Illustrative simulation; congestion varies by node, and latency figures are scenario examples.</p>
+      <a class="open-full" href="capacity.html">Open full-screen simulator ⤢</a>
     </section>
 
     <section class="card span2 reveal" id="priceCard" aria-label="Price over 24 months chart">
@@ -603,7 +609,7 @@
   </div>
 
   <footer>
-    <p><b style="color:var(--ink-2)">About this page.</b> A door-to-door demo aid built by the fiber sales side. It is not an official Brightspeed or Charter/Spectrum property, offer, or quote.</p>
+    <p><b style="color:var(--ink-2)">About this page.</b> A door-to-door demo aid built by the fiber sales side. It is not an official property, offer, or quote of any provider shown.</p>
     <p id="footDisclaimer"></p>
     <p>Animations are sped-up illustrations; the clocks and totals show real computed values from the figures above. The “7 o’clock slowdown” curve is an illustrative shared-node pattern, not a measurement of any specific address.</p>
   </footer>
@@ -692,8 +698,29 @@ const CONFIG = {
     smsBody: "Hi! Here's the fiber vs cable comparison I showed you: https://YOUR-PROJECT.vercel.app — reply here and I'll check your address. — Your Brightspeed fiber rep",
     micro: "30 seconds · no credit check to see prices",
   },
-  disclaimer: "Example plans, speeds, and prices for illustration only — offers vary by address and change over time. Latency figures are typical ranges. Verify current pricing, speeds, and terms for this address before ordering. Spectrum is a trademark of Charter Communications; Brightspeed is a trademark of Connect Holding LLC.",
+  disclaimer: "Example plans, speeds, and prices for illustration only — offers vary by address and change over time. Latency figures are typical ranges. Verify current pricing, speeds, and terms for this address before ordering. All provider names are trademarks of their respective owners.",
 };
+
+/* ===================== fiber brand (?brand=brightspeed|tmobile) =====================
+   Marks are colorblind-validated against Spectrum blue. The choice persists on the
+   device and is shared with capacity.html. */
+const BRANDS = {
+  brightspeed: { key:"brightspeed", name:"Brightspeed Fiber", mark:"#c98500", chrome:"#ffc800", chromeInk:"#191100" },
+  tmobile:     { key:"tmobile",     name:"T-Mobile Fiber",    mark:"#e20074", chrome:"#e20074", chromeInk:"#ffffff" },
+};
+const BRAND = (()=>{ try{
+  const q = new URLSearchParams(location.search).get("brand");
+  const k = (q || localStorage.getItem("fiberBrand") || "brightspeed").toLowerCase();
+  const b = BRANDS[k] || BRANDS.brightspeed;
+  localStorage.setItem("fiberBrand", b.key);
+  return b;
+}catch(e){ return BRANDS.brightspeed; }})();
+document.documentElement.style.setProperty("--fiber", BRAND.mark);
+document.documentElement.style.setProperty("--brand", BRAND.chrome);
+document.documentElement.style.setProperty("--brand-ink", BRAND.chromeInk);
+CONFIG.fiber.name = BRAND.name;
+CONFIG.marketLabel = `${BRAND.name} vs ${CONFIG.cable.name}`;
+CONFIG.ctas.smsBody = CONFIG.ctas.smsBody.replace("Brightspeed fiber rep", BRAND.name + " rep");
 
 /* ===================== helpers ===================== */
 const $ = s => document.querySelector(s);
@@ -745,6 +772,12 @@ function onVisible(el, fn){
 
 /* ===================== populate names & copy ===================== */
 const F = CONFIG.fiber, C = CONFIG.cable;
+{ // tint the hero glow to the fiber brand
+  const hx = BRAND.mark, rgb = [1,3,5].map(i=>parseInt(hx.slice(i,i+2),16));
+  $(".hero-glow").style.background =
+    `radial-gradient(340px 220px at 22% 40%, rgba(${rgb},.16), transparent 70%),`+
+    `radial-gradient(340px 220px at 78% 30%, rgba(57,135,229,.14), transparent 70%)`;
+}
 $("#marketLine").textContent = CONFIG.marketLabel;
 $("#legFiber").textContent = F.name; $("#legCable").textContent = C.name;
 $("#raceFiberName").textContent = F.name; $("#raceCableName").textContent = C.name + " cable";
@@ -808,8 +841,8 @@ const race = (() => {
       const pF = Math.min(1, sim/(tF*1000)), pC = Math.min(1, sim/(tC*1000));
       fillF.style.width = (pF*100).toFixed(2) + "%";
       fillC.style.width = (pC*100).toFixed(2) + "%";
-      ckF.textContent = fmtClock(Math.min(sim/1000, tF));
-      ckC.textContent = fmtClock(Math.min(sim/1000, tC));
+      if (pF < 1) ckF.textContent = fmtClock(Math.min(sim/1000, tF));
+      if (pC < 1) ckC.textContent = fmtClock(Math.min(sim/1000, tC));
       if (pF >= 1 && !fillF.classList.contains("done")){
         fillF.classList.add("done"); ckF.textContent = fmtClock(Math.round(tF));
         vdF.textContent = "✓ done in " + fmtDur(tF); vdF.classList.add("win");
@@ -1118,7 +1151,7 @@ function lineChart(host, opts){
         const fade = q.s < q.path.trunkLen ? 1 : Math.max(0, 1-(q.s-q.path.trunkLen)/40);
         y += q.j*fade;
       }
-      const col = q.p.net==="fiber" ? "#c98500" : "#3987e5";
+      const col = q.p.net==="fiber" ? BRAND.mark : "#3987e5";
       const r = q.p.small?2.4:3.1;
       ctx.fillStyle = col;
       ctx.globalAlpha = .22; ctx.beginPath(); ctx.arc(pt.x,y,r+2.6,0,7); ctx.fill();
