@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c10">
+<title>Fiber vs Cable — The Doorstep Demo</title>
+<style>
+  /* ---------- tokens (single committed dark look, tuned for outdoor phone use) ---------- */
+  :root{
+    --bg:#0a0c10;            /* page plane */
+    --surface:#12161d;       /* card / chart surface */
+    --surface-2:#1a202a;     /* nested surface (tracks, chips) */
+    --ink:#f2f4f8;
+    --ink-2:#bcc2cd;
+    --muted:#99a0ab;
+    --hairline:rgba(255,255,255,.08);
+    --grid:#232a34;          /* hairline gridlines */
+    --axis:#39414e;
+
+    /* series identity — validated (CVD + contrast) on both surfaces */
+    --fiber:#c98500;         /* Brightspeed marks */
+    --cable:#3987e5;         /* Spectrum marks */
+    --brand:#ffc800;         /* UI chrome only (CTA, accents) — never a data mark */
+
+    /* status — always icon + word, never color alone */
+    --good:#2fb52f;
+    --bad:#e05252;
+
+    --radius:18px;
+    --maxw:560px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);color:var(--ink);
+    font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  }
+  a{color:inherit}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 16px}
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky;top:0;z-index:40;
+    background:rgba(10,12,16,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--hairline);
+  }
+  .bar{display:flex;align-items:center;justify-content:space-between;height:52px}
+  .wordmark{font-weight:700;font-size:14px;letter-spacing:-.01em;white-space:nowrap}
+  .wordmark .dim{color:var(--muted);font-weight:500}
+  @media(max-width:479px){.wordmark .dim{display:none}}
+  .pitch-toggle{
+    display:flex;align-items:center;gap:6px;flex:none;white-space:nowrap;
+    font-size:12px;font-weight:600;color:var(--ink-2);
+    border:1px solid var(--hairline);border-radius:999px;padding:6px 12px;
+  }
+  .pitch-toggle .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:background .2s}
+  body.pitch-on .pitch-toggle{border-color:var(--brand);color:var(--ink)}
+  body.pitch-on .pitch-toggle .dot{background:var(--brand)}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;padding:30px 0 8px;overflow:hidden}
+  .hero-glow{
+    position:absolute;inset:-40% -20% auto;height:420px;pointer-events:none;
+    background:
+      radial-gradient(340px 220px at 22% 40%, rgba(201,133,0,.16), transparent 70%),
+      radial-gradient(340px 220px at 78% 30%, rgba(57,135,229,.14), transparent 70%);
+  }
+  .eyebrow{
+    font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:10px;
+  }
+  h1{
+    font-size:clamp(28px,7.4vw,38px);line-height:1.12;letter-spacing:-.022em;font-weight:800;
+    margin-bottom:10px;position:relative;
+  }
+  .sub{color:var(--ink-2);font-size:15.5px;max-width:44ch;margin-bottom:16px;position:relative}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:16px;position:relative}
+  .key{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink-2);white-space:nowrap}
+  .key .swatch{width:10px;height:10px;border-radius:50%}
+  .key .swatch.fiber{background:var(--fiber)}
+  .key .swatch.cable{background:var(--cable)}
+  .vs{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.06em}
+
+  /* ---------- cards ---------- */
+  .card{
+    background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);
+    padding:18px 16px;margin-bottom:14px;position:relative;
+  }
+  .card h2{font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:2px}
+  .card .hint{font-size:13px;color:var(--muted);margin-bottom:14px}
+  .card .note{font-size:12px;color:var(--muted);margin-top:12px}
+  .card .note b{color:var(--ink-2);font-weight:600}
+
+  .section-label{
+    font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin:26px 0 10px;display:flex;align-items:center;gap:8px;
+  }
+  .section-label::after{content:"";flex:1;height:1px;background:var(--hairline)}
+  .step-num{
+    display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;
+    background:var(--surface-2);color:var(--ink-2);font-size:10.5px;font-weight:800;letter-spacing:0;
+  }
+
+  /* ---------- the race ---------- */
+  .race-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .replay{
+    flex:none;display:inline-flex;align-items:center;gap:6px;
+    font-size:12.5px;font-weight:700;color:var(--ink);
+    background:var(--surface-2);border:1px solid var(--hairline);
+    border-radius:999px;padding:8px 14px;min-height:36px;
+  }
+  .replay svg{width:13px;height:13px}
+  .lane{margin-top:14px}
+  .lane-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:7px}
+  .lane-name{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700}
+  .lane-name .swatch{width:9px;height:9px;border-radius:50%}
+  .lane-meta{font-size:12px;color:var(--muted)}
+  .track{height:14px;border-radius:7px;background:var(--surface-2);overflow:hidden;position:relative}
+  .fill{
+    height:100%;width:0%;border-radius:7px 4px 4px 7px;position:relative;
+  }
+  .fill::after{ /* leading edge */
+    content:"";position:absolute;right:0;top:0;bottom:0;width:3px;border-radius:2px;
+    background:rgba(255,255,255,.55);
+  }
+  .fill.done::after{display:none}
+  .fill.fiber{background:var(--fiber)}
+  .fill.cable{background:var(--cable)}
+  .lane-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:7px;min-height:20px}
+  .clock{font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .verdict{font-size:13px;font-weight:700;color:var(--ink-2)}
+  .verdict.win{color:var(--ink)}
+  .ff-chip{
+    display:none;margin:12px auto 0;width:max-content;
+    font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--ink-2);
+    background:var(--surface-2);border:1px solid var(--hairline);border-radius:999px;padding:4px 12px;
+  }
+  .ff-chip.show{display:block}
+
+  .hero-stat{
+    display:flex;align-items:center;gap:14px;margin-top:18px;padding-top:16px;
+    border-top:1px solid var(--hairline);
+  }
+  .hero-num{font-size:52px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--ink)}
+  .hero-cap{font-size:13.5px;color:var(--ink-2);max-width:24ch}
+  details.math{margin-top:12px}
+  details.math summary{
+    font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;list-style:none;
+    display:inline-flex;align-items:center;gap:5px;min-height:32px;
+  }
+  details.math summary::before{content:"▸";font-size:10px;transition:transform .15s}
+  details.math[open] summary::before{transform:rotate(90deg)}
+  details.math .body{font-size:12.5px;color:var(--ink-2);padding:8px 0 2px;line-height:1.6}
+  details.math code{
+    font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink-2);
+    background:var(--surface-2);padding:1px 5px;border-radius:5px;
+  }
+
+  /* ---------- bento ---------- */
+  .bento{display:grid;grid-template-columns:1fr;gap:14px}
+  .bento .card{margin:0}
+  @media(min-width:480px){
+    .bento{grid-template-columns:1fr 1fr}
+    .bento .span2{grid-column:span 2}
+  }
+
+  /* charts */
+  .chart-wrap{position:relative}
+  .chart-wrap svg{display:block;width:100%;height:auto}
+  .chart-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:10px}
+  .tooltip{
+    position:absolute;pointer-events:none;z-index:5;display:none;
+    background:#0d1015;border:1px solid var(--hairline);border-radius:10px;
+    padding:8px 10px;font-size:12px;color:var(--ink-2);white-space:nowrap;
+    box-shadow:0 6px 20px rgba(0,0,0,.5);
+  }
+  .tooltip b{color:var(--ink);font-weight:700}
+  .tooltip .row{display:flex;align-items:center;gap:6px;margin-top:3px}
+  .tooltip .dot{width:7px;height:7px;border-radius:50%}
+  .axis-text{font-size:10.5px;fill:var(--muted);font-variant-numeric:tabular-nums}
+  .anno-text{font-size:11px;fill:var(--ink-2);font-weight:600}
+  .anno-strong{font-size:11.5px;fill:var(--ink);font-weight:700}
+
+  /* latency */
+  .ping-lane{margin-top:12px}
+  .ping-row{display:flex;align-items:center;gap:8px}
+  .ping-ends{font-size:15px;line-height:1;flex:none}
+  .ping-wire{position:relative;flex:1;height:22px}
+  .ping-wire .rail{position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:var(--surface-2);border-radius:1px}
+  .ping-dot{
+    position:absolute;top:50%;left:0;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
+    box-shadow:0 0 0 2px var(--surface);
+  }
+  .ping-dot.fiber{background:var(--fiber)}
+  .ping-dot.cable{background:var(--cable)}
+  body.anim .ping-dot{animation:ping var(--ping-dur) cubic-bezier(.45,0,.55,1) infinite}
+  @keyframes ping{0%{left:0}50%{left:100%}100%{left:0}}
+  .ping-label{display:flex;justify-content:space-between;align-items:baseline;margin-top:5px}
+  .ping-ms{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .ping-ms small{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0}
+
+  /* glass vs copper */
+  .pipes svg{width:100%;height:auto;display:block}
+  body.anim .flow-f{stroke-dasharray:7 11;animation:flow 1.1s linear infinite}
+  body.anim .flow-c{stroke-dasharray:5 13;animation:flow 3.2s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-18}}
+
+  /* scenarios */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .chip{
+    font-size:13px;font-weight:600;color:var(--ink-2);
+    background:var(--surface-2);border:1px solid var(--hairline);
+    border-radius:999px;padding:9px 14px;min-height:38px;
+  }
+  .chip[aria-pressed="true"]{background:var(--ink);color:#0b0d11;border-color:var(--ink)}
+  .scenario-dir{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+  .scenario-dir b{color:var(--ink-2)}
+  .time-lane{margin-bottom:12px}
+  .time-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .time-name{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700}
+  .time-val{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+  .time-track{height:10px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+  .time-fill{height:100%;width:0%;border-radius:5px 3px 3px 5px;transition:width .9s cubic-bezier(.22,.9,.35,1)}
+  .time-fill.fiber{background:var(--fiber)}
+  .time-fill.cable{background:var(--cable)}
+
+  /* ---------- table ---------- */
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:11px 8px;text-align:left;vertical-align:top;border-top:1px solid var(--hairline)}
+  thead th{border-top:0;padding-top:0;font-size:12px;color:var(--muted);font-weight:700}
+  thead .prov{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:12.5px}
+  thead .swatch{width:9px;height:9px;border-radius:50%;flex:none}
+  td.metric{color:var(--muted);font-size:12.5px;font-weight:600;width:31%}
+  td .v{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+  td .s{display:block;font-size:11.5px;color:var(--muted);font-weight:500;margin-top:2px}
+  .mark{font-weight:800;font-size:12px}
+  .mark.good{color:var(--good)}
+  .mark.bad{color:var(--bad)}
+  .mark.tie{color:var(--muted)}
+
+  /* ---------- pitch mode ---------- */
+  .coach{
+    display:none;margin:-4px 0 14px;padding:13px 14px;
+    border:1px dashed rgba(255,200,0,.45);border-radius:14px;
+    background:rgba(255,200,0,.05);font-size:13.5px;color:var(--ink-2);
+  }
+  .bento .coach{margin:0}
+  body.pitch-on .coach{display:block}
+  .coach .tag{
+    display:inline-block;font-size:10px;font-weight:800;letter-spacing:.12em;
+    color:var(--brand);margin-bottom:6px;
+  }
+  .coach p+p{margin-top:6px}
+  .coach b{color:var(--ink);font-weight:700}
+
+  /* ---------- CTA bar ---------- */
+  .cta-bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:rgba(10,12,16,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-top:1px solid var(--hairline);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  .cta-inner{max-width:var(--maxw);margin:0 auto}
+  .cta-micro{font-size:11.5px;color:var(--muted);text-align:center;margin-bottom:8px}
+  .cta-row{display:flex;gap:10px}
+  .btn{
+    flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    min-height:48px;border-radius:14px;font-size:14.5px;font-weight:700;
+    text-decoration:none;text-align:center;padding:10px 12px;
+  }
+  .btn-primary{background:var(--brand);color:#191100}
+  .btn-primary:active{transform:translateY(1px)}
+  .btn-ghost{border:1px solid var(--hairline);color:var(--ink);background:var(--surface)}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--hairline)}
+  footer p{font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:8px}
+
+  /* ---------- reveal ---------- */
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+  .reveal.in{opacity:1;transform:none}
+
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none !important;transition:none !important}
+    .reveal{opacity:1;transform:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <div class="wordmark">Fiber vs Cable <span class="dim">· the doorstep demo</span></div>
+    <button class="pitch-toggle" id="pitchToggle" aria-pressed="false">
+      <span class="dot"></span> Pitch mode
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ 1 · UNDERSTAND ============ -->
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <p class="eyebrow" id="marketLine">Brightspeed Fiber vs Spectrum</p>
+    <h1>Your internet has two directions. Cable is only fast in one.</h1>
+    <p class="sub">Video calls, cloud photos, gaming, security cams — they all <em>send</em> data too. Watch the same job run on both networks.</p>
+    <div class="legend" aria-hidden="true">
+      <span class="key"><span class="swatch fiber"></span><span id="legFiber">Brightspeed Fiber</span></span>
+      <span class="vs">VS</span>
+      <span class="key"><span class="swatch cable"></span><span id="legCable">Spectrum</span></span>
+    </div>
+  </section>
+
+  <div class="coach">
+    <span class="tag">🎤 SAY THIS</span>
+    <p><b>Open:</b> “Quick question — when everyone’s home at night, does your Wi-Fi ever feel slow?” Whatever they answer, turn the phone around and tap <b>Replay</b>. Let the race talk.</p>
+  </div>
+
+  <section class="card reveal" id="raceCard" aria-label="Upload race demo">
+    <div class="race-head">
+      <div>
+        <h2 id="raceTitle">Send the same 2 GB video</h2>
+        <p class="hint">Same file, both networks, real math — playback sped up.</p>
+      </div>
+      <button class="replay" id="replayBtn">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9M4 1v3.3h3.3"/></svg>
+        Replay
+      </button>
+    </div>
+
+    <div class="lane">
+      <div class="lane-top">
+        <span class="lane-name"><span class="swatch" style="background:var(--fiber)"></span><span id="raceFiberName">Brightspeed Fiber</span></span>
+        <span class="lane-meta" id="raceFiberMeta"></span>
+      </div>
+      <div class="track"><div class="fill fiber" id="fillFiber"></div></div>
+      <div class="lane-bottom">
+        <span class="clock" id="clockFiber">0:00</span>
+        <span class="verdict" id="verdictFiber"></span>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="lane-top">
+        <span class="lane-name"><span class="swatch" style="background:var(--cable)"></span><span id="raceCableName">Spectrum cable</span></span>
+        <span class="lane-meta" id="raceCableMeta"></span>
+      </div>
+      <div class="track"><div class="fill cable" id="fillCable"></div></div>
+      <div class="lane-bottom">
+        <span class="clock" id="clockCable">0:00</span>
+        <span class="verdict" id="verdictCable"></span>
+      </div>
+    </div>
+
+    <div class="ff-chip" id="ffChip">⏩ fast-forwarding — cable is still sending</div>
+
+    <div class="hero-stat">
+      <div class="hero-num" id="heroMult">30×</div>
+      <div class="hero-cap" id="heroCap">faster uploads on this fiber plan — on the exact jobs above</div>
+    </div>
+
+    <details class="math">
+      <summary>Show the math</summary>
+      <div class="body" id="mathBody"></div>
+    </details>
+  </section>
+
+  <!-- ============ 2 · EVALUATE ============ -->
+  <p class="section-label"><span class="step-num">2</span> The proof, one card at a time</p>
+
+  <div class="bento">
+
+    <div class="coach span2" style="grid-column:1/-1">
+      <span class="tag">🎤 SAY THIS</span>
+      <p>Jump to whichever card fits the person: parents → <b>7 o’clock slowdown</b>, gamers &amp; WFH → <b>the lag test</b>, budget-minded → <b>the 24-month bill</b>. You don’t need all four.</p>
+    </div>
+
+    <section class="card span2 reveal" id="dayCard" aria-label="Delivered speed across the day chart">
+      <h2>The 7 o’clock slowdown</h2>
+      <p class="hint">Share of the speed you pay for, across one day — illustrative pattern</p>
+      <div class="chart-legend">
+        <span class="key"><span class="swatch fiber"></span>Fiber · your line</span>
+        <span class="key"><span class="swatch cable"></span>Cable · shared node</span>
+      </div>
+      <div class="chart-wrap" id="dayChart"></div>
+      <p class="note">Cable bandwidth is <b>shared by your street</b> at a neighborhood node, so evenings sag when everyone streams. A fiber line runs <b>from the network to your home</b> — no rush hour. Exact dips vary by node and neighborhood.</p>
+    </section>
+
+    <section class="card reveal" id="pingCard" aria-label="Latency comparison">
+      <h2>The lag test</h2>
+      <p class="hint">Ping — the wait between your click and the response</p>
+      <div class="ping-lane">
+        <div class="ping-row">
+          <span class="ping-ends" aria-hidden="true">🏠</span>
+          <div class="ping-wire"><div class="rail"></div><div class="ping-dot fiber" style="--ping-dur:1.1s"></div></div>
+          <span class="ping-ends" aria-hidden="true">🌐</span>
+        </div>
+        <div class="ping-label">
+          <span class="key"><span class="swatch fiber"></span>Fiber</span>
+          <span class="ping-ms"><span id="msFiber">0</span><small> ms</small></span>
+        </div>
+      </div>
+      <div class="ping-lane">
+        <div class="ping-row">
+          <span class="ping-ends" aria-hidden="true">🏠</span>
+          <div class="ping-wire"><div class="rail"></div><div class="ping-dot cable" style="--ping-dur:2.6s"></div></div>
+          <span class="ping-ends" aria-hidden="true">🌐</span>
+        </div>
+        <div class="ping-label">
+          <span class="key"><span class="swatch cable"></span>Cable</span>
+          <span class="ping-ms"><span id="msCable">0</span><small> ms</small></span>
+        </div>
+      </div>
+      <p class="note" id="pingNote">You feel this on <b>video calls</b> and in <b>games</b> — frozen faces and late clicks. Typical figures; every network varies.</p>
+    </section>
+
+    <section class="card reveal pipes" id="pipeCard" aria-label="Fiber versus cable line diagram">
+      <h2>Glass vs copper</h2>
+      <p class="hint">What’s actually buried in the street</p>
+      <div id="pipeSvg"></div>
+      <p class="note"><b>Fiber:</b> light through glass, straight to your home. <b>Cable:</b> electricity through copper that the whole street shares.</p>
+    </section>
+
+    <section class="card span2 reveal" id="priceCard" aria-label="Price over 24 months chart">
+      <h2>The 24-month bill</h2>
+      <p class="hint">Advertised monthly price, months 1–24 — example plans, edit CONFIG for your market</p>
+      <div class="chart-legend">
+        <span class="key"><span class="swatch fiber"></span><span id="priceLegFiber">Fiber</span></span>
+        <span class="key"><span class="swatch cable"></span><span id="priceLegCable">Cable promo</span></span>
+      </div>
+      <div class="chart-wrap" id="priceChart"></div>
+      <div class="hero-stat" style="margin-top:14px;padding-top:14px">
+        <div>
+          <div style="font-size:26px;font-weight:800;letter-spacing:-.02em" id="totFiber">$0</div>
+          <div style="font-size:12px;color:var(--muted)">2-yr total · fiber</div>
+        </div>
+        <div>
+          <div style="font-size:26px;font-weight:800;letter-spacing:-.02em" id="totCable">$0</div>
+          <div style="font-size:12px;color:var(--muted)">2-yr total · cable</div>
+        </div>
+        <div class="hero-cap" id="priceTakeaway" style="margin-left:auto;text-align:right"></div>
+      </div>
+    </section>
+
+    <section class="card span2 reveal" id="scenarioCard" aria-label="Real life scenarios">
+      <h2>Pick something you actually do</h2>
+      <p class="hint">Times computed from the plan speeds below — tap one</p>
+      <div class="chips" id="chips" role="group" aria-label="Scenario picker"></div>
+      <p class="scenario-dir" id="scenarioDir"></p>
+      <div class="time-lane">
+        <div class="time-top">
+          <span class="time-name"><span class="swatch" style="width:9px;height:9px;border-radius:50%;background:var(--fiber)"></span>Fiber</span>
+          <span class="time-val" id="tvFiber">—</span>
+        </div>
+        <div class="time-track"><div class="time-fill fiber" id="tfFiber"></div></div>
+      </div>
+      <div class="time-lane">
+        <div class="time-top">
+          <span class="time-name"><span class="swatch" style="width:9px;height:9px;border-radius:50%;background:var(--cable)"></span>Cable</span>
+          <span class="time-val" id="tvCable">—</span>
+        </div>
+        <div class="time-track"><div class="time-fill cable" id="tfCable"></div></div>
+      </div>
+      <p class="note" id="scenarioNote"></p>
+    </section>
+  </div>
+
+  <!-- ============ 3 · TRUST ============ -->
+  <p class="section-label"><span class="step-num">3</span> Straight answers, side by side</p>
+
+  <div class="coach">
+    <span class="tag">🎤 SAY THIS</span>
+    <p>Point at the <b>ties first</b>: “No contract on either. No data cap on either. That part’s a wash.” Conceding the ties is what makes the upload row land.</p>
+    <p><b>“I’m happy with Spectrum.”</b> → “Most folks are — until the first frozen Zoom call. Keep it if you love it. Just worth 30 seconds to see if fiber reached your address yet.”</p>
+    <p><b>“Is that price real?”</b> → “That’s the everyday price, not a promo — here’s the 24-month math above.”</p>
+    <p><b>“Need to ask my spouse.”</b> → “Of course. Tap <b>Text me this</b> and you’ll both have it tonight.”</p>
+  </div>
+
+  <section class="card reveal" aria-label="Side by side comparison table">
+    <table id="compareTable">
+      <thead>
+        <tr>
+          <th></th>
+          <th><span class="prov"><span class="swatch" style="background:var(--fiber)"></span><span id="thFiber">Brightspeed Fiber</span></span></th>
+          <th><span class="prov"><span class="swatch" style="background:var(--cable)"></span><span id="thCable">Spectrum</span></span></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <p class="note" id="tableDisclaimer"></p>
+  </section>
+
+  <!-- ============ 4 · DECIDE ============ -->
+  <div class="coach">
+    <span class="tag">🎤 SAY THIS</span>
+    <p><b>Close, low pressure:</b> “Two options — we check your address right now, takes 30 seconds… or I text you this page and you look tonight. Which is easier?”</p>
+  </div>
+
+  <footer>
+    <p><b style="color:var(--ink-2)">About this page.</b> A door-to-door demo aid built by the fiber sales side. It is not an official Brightspeed or Charter/Spectrum property, offer, or quote.</p>
+    <p id="footDisclaimer"></p>
+    <p>Animations are sped-up illustrations; the clocks and totals show real computed values from the figures above. The “7 o’clock slowdown” curve is an illustrative shared-node pattern, not a measurement of any specific address.</p>
+  </footer>
+</main>
+
+<div class="cta-bar">
+  <div class="cta-inner">
+    <p class="cta-micro" id="ctaMicro">30 seconds · no credit check to see prices</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" id="ctaCheck" href="#" target="_blank" rel="noopener">See if my address has fiber</a>
+      <a class="btn btn-ghost" id="ctaText" href="#">💬 Text me this</a>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   CONFIG — every number a prospect sees lives here. Edit for your market.
+   Figures below are EXAMPLE plans for illustration; verify current offers
+   for the actual address before quoting.
+   ===================================================================== */
+const CONFIG = {
+  marketLabel: "Brightspeed Fiber vs Spectrum",
+  fiber: {
+    name: "Brightspeed Fiber",
+    short: "Fiber",
+    plan: "Fiber 600",
+    down: 600, up: 600,          // Mbps
+    latencyMs: 8,                // typical
+    price: 59,                   // $/mo
+    priceAfter: 59,              // $/mo after promo horizon (same = no step-up)
+    promoMonths: 0,              // 0 = everyday price
+    line: "Your own fiber line to the home",
+    wifi: "Wi-Fi router included",
+    contract: "None",
+    dataCap: "None",
+  },
+  cable: {
+    name: "Spectrum",
+    short: "Cable",
+    plan: "Internet 500 (example)",
+    down: 500, up: 20,
+    latencyMs: 25,
+    price: 50,
+    priceAfter: 85,
+    promoMonths: 12,
+    line: "Copper coax, shared neighborhood node",
+    wifi: "Included on newer plans",
+    contract: "None",
+    dataCap: "None",
+  },
+  race: { label: "Send the same 2 GB video", gb: 2, direction: "up" },
+  scenarios: [
+    { id:"video",  chip:"📹 Send a 4K family video", gb:2,  direction:"up",
+      note:"Uploading 2 GB. This is the gap you feel." },
+    { id:"photos", chip:"☁️ Back up 5,000 photos", gb:15, direction:"up",
+      note:"15 GB to the cloud. Fiber finishes over lunch; cable runs all afternoon." },
+    { id:"game",   chip:"🎮 Download a new game", gb:75, direction:"down",
+      note:"75 GB down. Honest answer: downloads are close — that’s not where cable hurts." },
+    { id:"movie",  chip:"🎬 A movie in 4K", gb:25, direction:"down",
+      note:"25 GB down. Close again — the difference lives in uploads, evenings, and lag." },
+  ],
+  dayCurve: { // % of advertised speed delivered, hourly 12am → 12am (illustrative)
+    fiber: [99,99,99,99,99,99,99,98,99,99,98,99,99,98,99,99,98,98,97,97,97,98,99,99,99],
+    cable: [97,97,97,97,97,97,96,95,94,93,93,92,91,91,90,88,84,76,66,58,60,70,84,93,96],
+  },
+  ctas: {
+    checkUrl: "https://www.brightspeed.com/",   // ← rep: your availability / order link
+    smsBody: "Hi! Here's that fiber vs cable comparison I showed you — reply here and I'll check your address. — Your Brightspeed fiber rep",
+    micro: "30 seconds · no credit check to see prices",
+  },
+  disclaimer: "Example plans, speeds, and prices for illustration only — offers vary by address and change over time. Latency figures are typical ranges. Verify current pricing, speeds, and terms for this address before ordering. Spectrum is a trademark of Charter Communications; Brightspeed is a trademark of Connect Holding LLC.",
+};
+
+/* ===================== helpers ===================== */
+const $ = s => document.querySelector(s);
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (!reduced) document.body.classList.add("anim");
+
+const secsFor = (gb, mbps) => gb * 8000 / mbps;
+function fmtDur(s){
+  s = Math.round(s);
+  if (s < 60) return s + " s";
+  const m = Math.floor(s/60), r = s%60;
+  if (m < 60) return r ? `${m} m ${r} s` : `${m} m`;
+  const h = Math.floor(m/60), mm = m%60;
+  return mm ? `${h} h ${mm} m` : `${h} h`;
+}
+function fmtClock(s){
+  const m = Math.floor(s/60), r = Math.floor(s%60);
+  return m + ":" + String(r).padStart(2,"0");
+}
+const money = n => "$" + n.toLocaleString("en-US");
+
+function countUp(el, target, {dur=900, fmt=(v=>Math.round(v))}={}){
+  if (reduced){ el.textContent = fmt(target); return; }
+  const t0 = performance.now();
+  (function tick(t){
+    const p = Math.min(1,(t-t0)/dur), e = 1-Math.pow(1-p,3);
+    el.textContent = fmt(target*e);
+    if (p<1) requestAnimationFrame(tick);
+  })(t0);
+}
+
+/* one-shot reveal + lazy init per card */
+const inits = new Map();
+const io = ("IntersectionObserver" in window) ? new IntersectionObserver(entries=>{
+  for (const en of entries){
+    if (!en.isIntersecting) continue;
+    en.target.classList.add("in");
+    const fn = inits.get(en.target); if (fn){ inits.delete(en.target); fn(); }
+    io.unobserve(en.target);
+  }
+},{threshold:.25}) : null;
+function onVisible(el, fn){
+  if (!io || reduced){ el.classList.add("in"); fn && fn(); return; }
+  if (fn) inits.set(el, fn);
+  io.observe(el);
+}
+
+/* ===================== populate names & copy ===================== */
+const F = CONFIG.fiber, C = CONFIG.cable;
+$("#marketLine").textContent = CONFIG.marketLabel;
+$("#legFiber").textContent = F.name; $("#legCable").textContent = C.name;
+$("#raceFiberName").textContent = F.name; $("#raceCableName").textContent = C.name + " cable";
+$("#thFiber").textContent = F.name; $("#thCable").textContent = C.name;
+$("#priceLegFiber").textContent = F.short + " · " + (F.promoMonths ? "promo pricing" : "flat price");
+$("#priceLegCable").textContent = C.short + " · " + (C.promoMonths ? "promo steps up" : "flat price");
+$("#tableDisclaimer").textContent = CONFIG.disclaimer;
+$("#footDisclaimer").textContent = CONFIG.disclaimer;
+$("#ctaMicro").textContent = CONFIG.ctas.micro;
+$("#ctaCheck").href = CONFIG.ctas.checkUrl;
+$("#ctaText").href = "sms:?&body=" + encodeURIComponent(CONFIG.ctas.smsBody);
+
+/* ===================== the race ===================== */
+const race = (() => {
+  const gb = CONFIG.race.gb, dir = CONFIG.race.direction;
+  const vF = dir==="up" ? F.up : F.down, vC = dir==="up" ? C.up : C.down;
+  const tF = secsFor(gb, vF), tC = secsFor(gb, vC);
+  const mult = Math.round(vF/vC);
+
+  $("#raceTitle").textContent = CONFIG.race.label;
+  $("#raceFiberMeta").textContent = `${vF} Mbps ${dir==="up"?"upload":"download"}`;
+  $("#raceCableMeta").textContent = `${vC} Mbps ${dir==="up"?"upload":"download"}`;
+  $("#heroMult").textContent = mult + "×";
+  $("#heroCap").textContent = `faster ${dir==="up"?"uploads":"downloads"} on this fiber plan (${vF} vs ${vC} Mbps)`;
+  $("#mathBody").innerHTML =
+    `${gb} GB = ${(gb*8000).toLocaleString()} megabits.<br>` +
+    `Fiber: <code>${(gb*8000).toLocaleString()} ÷ ${vF} Mbps = ${fmtDur(tF)}</code><br>` +
+    `Cable: <code>${(gb*8000).toLocaleString()} ÷ ${vC} Mbps = ${fmtDur(tC)}</code><br>` +
+    `Best-case line speeds; real transfers add overhead on both.`;
+
+  const fillF = $("#fillFiber"), fillC = $("#fillCable"),
+        ckF = $("#clockFiber"), ckC = $("#clockCable"),
+        vdF = $("#verdictFiber"), vdC = $("#verdictCable"), ff = $("#ffChip");
+  let raf = 0;
+
+  function finalState(){
+    fillF.style.width = fillC.style.width = "100%";
+    fillF.classList.add("done"); fillC.classList.add("done");
+    ckF.textContent = fmtClock(Math.round(tF)); ckC.textContent = fmtClock(Math.round(tC));
+    vdF.textContent = "✓ done in " + fmtDur(tF); vdF.classList.add("win");
+    vdC.textContent = "done in " + fmtDur(tC); ff.classList.remove("show");
+  }
+
+  function run(){
+    cancelAnimationFrame(raf);
+    if (reduced){ finalState(); return; }
+    fillF.classList.remove("done"); fillC.classList.remove("done");
+    vdF.textContent = vdC.textContent = ""; vdF.classList.remove("win");
+    ff.classList.remove("show");
+
+    const FIBER_ANIM = 2600;                  // fiber's real duration plays over 2.6 s
+    const scale = tF*1000 / FIBER_ANIM;       // sim-ms of network time per real ms
+    const FF_ANIM = 3800;                     // cable's remainder fast-forwards over 3.8 s
+    const ffMult = Math.max(1, (tC - tF)*1000 / scale / FF_ANIM);
+    let sim = 0, last = performance.now(), done = false;
+
+    (function tick(now){
+      const dt = now - last; last = now;
+      const ffOn = sim >= tF*1000;
+      sim += dt * scale * (ffOn ? ffMult : 1);
+      const pF = Math.min(1, sim/(tF*1000)), pC = Math.min(1, sim/(tC*1000));
+      fillF.style.width = (pF*100).toFixed(2) + "%";
+      fillC.style.width = (pC*100).toFixed(2) + "%";
+      ckF.textContent = fmtClock(Math.min(sim/1000, tF));
+      ckC.textContent = fmtClock(Math.min(sim/1000, tC));
+      if (pF >= 1 && !fillF.classList.contains("done")){
+        fillF.classList.add("done"); ckF.textContent = fmtClock(Math.round(tF));
+        vdF.textContent = "✓ done in " + fmtDur(tF); vdF.classList.add("win");
+      }
+      if (ffOn && pC < 1) ff.classList.add("show");
+      if (pC >= 1 && !done){
+        done = true; fillC.classList.add("done"); ckC.textContent = fmtClock(Math.round(tC));
+        vdC.textContent = "done in " + fmtDur(tC); ff.classList.remove("show");
+      }
+      if (!done) raf = requestAnimationFrame(tick);
+    })(last);
+  }
+  $("#replayBtn").addEventListener("click", run);
+  return { run };
+})();
+onVisible($("#raceCard"), () => race.run());
+
+/* ===================== svg chart utils ===================== */
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs){
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+function lineChart(host, opts){
+  const W=340, H=opts.h||185, mL=34, mR=10, mT=14, mB=24;
+  const pw = W-mL-mR, ph = H-mT-mB;
+  const {series, yMax, yTicks, xTicks, yFmt} = opts;
+  const X = i => mL + pw * i/(opts.n-1);
+  const Y = v => mT + ph * (1 - v/yMax);
+
+  const svg = el("svg",{viewBox:`0 0 ${W} ${H}`, role:"img", "aria-label":opts.aria});
+  for (const t of yTicks){
+    svg.append(el("line",{x1:mL,x2:W-mR,y1:Y(t),y2:Y(t),stroke:"var(--grid)","stroke-width":1}));
+    const tx = el("text",{x:mL-6,y:Y(t)+3.5,"text-anchor":"end",class:"axis-text"});
+    tx.textContent = yFmt ? yFmt(t) : t; svg.append(tx);
+  }
+  svg.append(el("line",{x1:mL,x2:W-mR,y1:Y(0),y2:Y(0),stroke:"var(--axis)","stroke-width":1}));
+  for (const [i,label] of xTicks){
+    const tx = el("text",{x:X(i),y:H-7,"text-anchor":"middle",class:"axis-text"});
+    tx.textContent = label; svg.append(tx);
+  }
+  if (opts.band){ // subtle x-range wash (annotation, not data)
+    const [a,b] = opts.band;
+    svg.insertBefore(el("rect",{x:X(a),y:mT,width:X(b)-X(a),height:ph,fill:"rgba(255,255,255,.035)"}), svg.firstChild);
+  }
+  const paths = [];
+  for (const s of series){
+    const d = s.data.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+    const p = el("path",{d,fill:"none",stroke:s.color,"stroke-width":2,"stroke-linecap":"round","stroke-linejoin":"round"});
+    svg.append(p); paths.push(p);
+  }
+  host.append(svg);
+
+  // draw-in animation
+  if (!reduced){
+    for (const p of paths){
+      const L = p.getTotalLength();
+      p.style.strokeDasharray = L; p.style.strokeDashoffset = L;
+      p.style.transition = "stroke-dashoffset 1.3s ease .15s";
+    }
+    opts.onDraw = () => paths.forEach(p => p.style.strokeDashoffset = 0);
+  } else opts.onDraw = ()=>{};
+
+  // annotations layer (after paths so labels sit on top)
+  if (opts.annotate) opts.annotate(svg, X, Y);
+
+  // hover / tap tooltip — enhances only; values also live in labels & table
+  const tip = document.createElement("div"); tip.className="tooltip"; host.append(tip);
+  const hit = el("rect",{x:mL,y:mT,width:pw,height:ph,fill:"transparent"});
+  svg.append(hit);
+  const cross = el("line",{y1:mT,y2:mT+ph,stroke:"var(--axis)","stroke-width":1,visibility:"hidden"});
+  svg.insertBefore(cross, paths[0]);
+  const dots = series.map(s=>{
+    const c = el("circle",{r:4,fill:s.color,stroke:"var(--surface)","stroke-width":2,visibility:"hidden"});
+    svg.append(c); return c;
+  });
+  function showTip(clientX){
+    const r = svg.getBoundingClientRect();
+    const px = (clientX - r.left) * (W/r.width);
+    const i = Math.max(0, Math.min(opts.n-1, Math.round((px-mL)/pw*(opts.n-1))));
+    cross.setAttribute("x1",X(i)); cross.setAttribute("x2",X(i)); cross.setAttribute("visibility","visible");
+    series.forEach((s,k)=>{ dots[k].setAttribute("cx",X(i)); dots[k].setAttribute("cy",Y(s.data[i])); dots[k].setAttribute("visibility","visible"); });
+    tip.innerHTML = `<b>${opts.xLabel(i)}</b>` + series.map(s=>
+      `<span class="row"><span class="dot" style="background:${s.color}"></span>${s.name}: <b>&nbsp;${s.fmt(s.data[i])}</b></span>`).join("");
+    tip.style.display="block";
+    const hostR = host.getBoundingClientRect();
+    const xPix = X(i)/W*hostR.width;
+    tip.style.left = Math.max(4, Math.min(hostR.width - tip.offsetWidth - 4, xPix - tip.offsetWidth/2)) + "px";
+    tip.style.top = "-6px";
+  }
+  function hideTip(){ tip.style.display="none"; cross.setAttribute("visibility","hidden"); dots.forEach(d=>d.setAttribute("visibility","hidden")); }
+  svg.addEventListener("pointermove", e=>showTip(e.clientX));
+  svg.addEventListener("pointerdown", e=>showTip(e.clientX));
+  svg.addEventListener("pointerleave", hideTip);
+  return opts;
+}
+
+/* ===================== 7pm chart ===================== */
+{
+  const day = lineChart($("#dayChart"),{
+    n:25, h:190, yMax:100, yTicks:[0,25,50,75,100],
+    yFmt:v=>v+"%",
+    xTicks:[[0,"12a"],[6,"6a"],[12,"12p"],[18,"6p"],[24,"12a"]],
+    band:[17,22],
+    aria:"Line chart: share of advertised speed delivered across a day. Fiber holds near 99 percent all day. Cable, shared at a neighborhood node, dips to about 58 percent around 8 pm (illustrative pattern).",
+    xLabel:i=>{const h=i%24;const ap=h<12?"a":"p";const hh=h%12===0?12:h%12;return hh+" "+ap+"m";},
+    series:[
+      {name:"Fiber", color:"var(--fiber)", data:CONFIG.dayCurve.fiber, fmt:v=>v+"%"},
+      {name:"Cable", color:"var(--cable)", data:CONFIG.dayCurve.cable, fmt:v=>v+"%"},
+    ],
+    annotate(svg,X,Y){
+      const iMin = CONFIG.dayCurve.cable.indexOf(Math.min(...CONFIG.dayCurve.cable));
+      const vMin = CONFIG.dayCurve.cable[iMin];
+      const h = iMin%24, hh = h%12===0?12:h%12, hourLbl = hh + (h<12?" am":" pm");
+      svg.append(el("circle",{cx:X(iMin),cy:Y(vMin),r:4,fill:"var(--cable)",stroke:"var(--surface)","stroke-width":2}));
+      svg.append(el("line",{x1:X(iMin),y1:Y(vMin)+6,x2:X(iMin),y2:Y(18),stroke:"var(--axis)","stroke-width":1}));
+      const t1 = el("text",{x:Math.min(X(iMin), 268),y:Y(12),"text-anchor":"middle",class:"anno-strong"});
+      t1.textContent = `${hourLbl} · cable ≈ ${vMin}%`; svg.append(t1);
+      const t2 = el("text",{x:X(2),y:Y(CONFIG.dayCurve.fiber[2])-8,class:"anno-text"});
+      t2.textContent = "fiber ≈ 99% all day"; svg.append(t2);
+    }
+  });
+  onVisible($("#dayCard"), day.onDraw);
+}
+
+/* ===================== latency ===================== */
+onVisible($("#pingCard"), ()=>{
+  countUp($("#msFiber"), F.latencyMs, {dur:900});
+  countUp($("#msCable"), C.latencyMs, {dur:1400});
+  $("#pingNote").innerHTML =
+    `Cable’s wait is <b>${(C.latencyMs/F.latencyMs).toFixed(1)}× longer</b> here — you feel it on <b>video calls</b> and in <b>games</b>. Typical figures (${F.latencyMs} vs ${C.latencyMs} ms); every network varies.`;
+});
+
+/* ===================== glass vs copper svg ===================== */
+{
+  const sw = "var(--axis)";
+  $("#pipeSvg").innerHTML = `
+  <svg viewBox="0 0 300 168" role="img" aria-label="Diagram: a dedicated fiber line runs straight from the network to one home. The cable line runs from the network to a shared neighborhood node, which splits to five homes.">
+    <text x="8" y="16" class="anno-text">Fiber — your own line</text>
+    <circle cx="16" cy="42" r="7" fill="none" stroke="${sw}" stroke-width="1.5"/>
+    <text x="4" y="62" class="axis-text">network</text>
+    <path d="M24 42 H262" stroke="var(--surface-2)" stroke-width="6" stroke-linecap="round"/>
+    <path class="flow-f" d="M24 42 H262" stroke="var(--fiber)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <path d="M270 46 v-8 l8 -7 8 7 v8 z" fill="none" stroke="var(--ink-2)" stroke-width="1.5" stroke-linejoin="round"/>
+    <text x="278" y="62" text-anchor="middle" class="axis-text">you</text>
+
+    <text x="8" y="96" class="anno-text">Cable — one line, whole street</text>
+    <circle cx="16" cy="122" r="7" fill="none" stroke="${sw}" stroke-width="1.5"/>
+    <text x="4" y="142" class="axis-text">network</text>
+    <path d="M24 122 H150" stroke="var(--surface-2)" stroke-width="6" stroke-linecap="round"/>
+    <path class="flow-c" d="M24 122 H150" stroke="var(--cable)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <rect x="150" y="112" width="20" height="20" rx="4" fill="none" stroke="${sw}" stroke-width="1.5"/>
+    <text x="160" y="150" text-anchor="middle" class="axis-text">shared node</text>
+    ${[132,112,152].map((y,k)=>`
+      <path d="M170 122 C 200 122 200 ${y} 226 ${y}" stroke="var(--surface-2)" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path class="flow-c" d="M170 122 C 200 122 200 ${y} 226 ${y}" stroke="var(--cable)" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      <path d="M232 ${y+4} v-6 l6 -5 6 5 v6 z" fill="none" stroke="var(--ink-2)" stroke-width="1.3" stroke-linejoin="round"/>`).join("")}
+    <text x="262" y="120" class="axis-text">+ more…</text>
+  </svg>`;
+}
+
+/* ===================== price chart ===================== */
+{
+  const months = 24, n = months; // one point per month: index i = month i+1
+  const fSeries = [], cSeries = [];
+  for (let m=1;m<=months;m++){
+    fSeries.push(F.promoMonths && m > F.promoMonths ? F.priceAfter : F.price);
+    cSeries.push(C.promoMonths && m > C.promoMonths ? C.priceAfter : C.price);
+  }
+  const yMax = Math.ceil(Math.max(F.price,F.priceAfter,C.price,C.priceAfter)*1.25/25)*25;
+  const totF = fSeries.reduce((a,b)=>a+b,0);
+  const totC = cSeries.reduce((a,b)=>a+b,0);
+
+  const chart = lineChart($("#priceChart"),{
+    n, h:190, yMax, yTicks:[0,25,50,75,100].filter(t=>t<=yMax).concat(yMax%25===0&&yMax>100?[yMax]:[]),
+    yFmt:v=>"$"+v,
+    xTicks:[[0,"m1"],[5,"m6"],[11,"m12"],[17,"m18"],[23,"m24"]],
+    aria:`Step chart of monthly price over 24 months. ${F.name} stays at ${money(F.price)} every month. ${C.name} starts at ${money(C.price)} and steps up to ${money(C.priceAfter)} from month ${C.promoMonths+1}.`,
+    xLabel:i=>"Month "+(i+1),
+    series:[
+      {name:F.short, color:"var(--fiber)", data:fSeries, fmt:v=>money(v)+"/mo"},
+      {name:C.short, color:"var(--cable)", data:cSeries, fmt:v=>money(v)+"/mo"},
+    ],
+    annotate(svg,X,Y){
+      const tC = el("text",{x:X(23),y:Y(C.priceAfter)-9,"text-anchor":"end",class:"anno-strong"});
+      tC.textContent = money(C.priceAfter)+"/mo after promo"; svg.append(tC);
+      const tF = el("text",{x:X(23),y:Y(F.price)+16,"text-anchor":"end",class:"anno-strong"});
+      tF.textContent = money(F.price)+" every month"; svg.append(tF);
+      if (C.promoMonths && C.promoMonths < months){
+        const jump = el("text",{x:X(C.promoMonths-0.5)+6,y:Y((C.price+C.priceAfter)/2)+3,class:"anno-text"});
+        jump.textContent = "+"+money(C.priceAfter-C.price)+"/mo"; svg.append(jump);
+      }
+    }
+  });
+  onVisible($("#priceCard"), ()=>{
+    chart.onDraw();
+    countUp($("#totFiber"), totF, {fmt:v=>money(Math.round(v)), dur:1100});
+    countUp($("#totCable"), totC, {fmt:v=>money(Math.round(v)), dur:1100});
+    const diff = totC - totF;
+    $("#priceTakeaway").textContent = diff>0
+      ? `the “cheaper” promo costs ${money(diff)} more over 2 years`
+      : `about the same over 2 years — the difference is what you get for it`;
+  });
+}
+
+/* ===================== scenarios ===================== */
+{
+  const chipsBox = $("#chips");
+  let activeBtn = null;
+  function show(sc, animate=true){
+    const vF = sc.direction==="up"?F.up:F.down, vC = sc.direction==="up"?C.up:C.down;
+    const sF = secsFor(sc.gb,vF), sC = secsFor(sc.gb,vC);
+    $("#scenarioDir").innerHTML =
+      `<b>${sc.gb} GB ${sc.direction==="up"?"upload ↑":"download ↓"}</b> · fiber at ${vF} Mbps, cable at ${vC} Mbps`;
+    $("#tvFiber").textContent = fmtDur(sF);
+    $("#tvCable").textContent = fmtDur(sC);
+    const wF = sF/sC*100;
+    const tf = $("#tfFiber"), tc = $("#tfCable");
+    if (!animate || reduced){ tf.style.width = wF+"%"; tc.style.width = "100%"; }
+    else {
+      tf.style.width = tc.style.width = "0%";
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{ tf.style.width = wF+"%"; tc.style.width = "100%"; }));
+    }
+    $("#scenarioNote").textContent = sc.note;
+  }
+  CONFIG.scenarios.forEach((sc,i)=>{
+    const b = document.createElement("button");
+    b.className="chip"; b.textContent = sc.chip; b.setAttribute("aria-pressed", i===0);
+    b.addEventListener("click", ()=>{
+      if (activeBtn) activeBtn.setAttribute("aria-pressed","false");
+      activeBtn = b; b.setAttribute("aria-pressed","true"); show(sc);
+    });
+    chipsBox.append(b);
+    if (i===0) activeBtn = b;
+  });
+  onVisible($("#scenarioCard"), ()=>show(CONFIG.scenarios[0]));
+}
+
+/* ===================== comparison table ===================== */
+{
+  const mark = (kind, txt) => {
+    const cls = kind==="good"?"good":kind==="bad"?"bad":"tie";
+    const sym = kind==="good"?"✓":kind==="bad"?"✗":"＝";
+    return `<span class="mark ${cls}">${sym} ${txt}</span>`;
+  };
+  const rows = [
+    ["Download", `<span class="v">${F.down} Mbps</span>`, `<span class="v">${C.down} Mbps</span><span class="s">close race</span>`],
+    ["Upload", `<span class="v">${F.up} Mbps</span><span class="s">${mark("good","same speed both ways")}</span>`,
+               `<span class="v">${C.up} Mbps</span><span class="s">${mark("bad", Math.round(F.up/C.up)+"× slower here")}</span>`],
+    ["Wait per click (latency)", `<span class="v">~${F.latencyMs} ms</span>`, `<span class="v">~${C.latencyMs} ms</span><span class="s">typical figures</span>`],
+    ["The line itself", `${F.line}<span class="s">${mark("good","not shared")}</span>`, `${C.line}<span class="s">evening slowdowns</span>`],
+    ["Price, month 1", `<span class="v">${money(F.price)}/mo</span>`, `<span class="v">${money(C.price)}/mo</span><span class="s">promo</span>`],
+    ["Price, month 13", `<span class="v">${money(F.promoMonths? F.priceAfter : F.price)}/mo</span><span class="s">${mark("good","same number")}</span>`,
+                        `<span class="v">${money(C.priceAfter)}/mo</span><span class="s">${mark("bad","+"+money(C.priceAfter-C.price)+"/mo step-up")}</span>`],
+    ["Wi-Fi equipment", F.wifi, C.wifi],
+    ["Contract", `${F.contract}<span class="s">${mark("tie","tie")}</span>`, `${C.contract}<span class="s">${mark("tie","tie — credit where due")}</span>`],
+    ["Data cap", `${F.dataCap}<span class="s">${mark("tie","tie")}</span>`, `${C.dataCap}<span class="s">${mark("tie","tie")}</span>`],
+  ];
+  $("#tableBody").innerHTML = rows.map(r=>
+    `<tr><td class="metric">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("");
+}
+
+/* ===================== pitch mode ===================== */
+{
+  const btn = $("#pitchToggle");
+  const set = on => {
+    document.body.classList.toggle("pitch-on", on);
+    btn.setAttribute("aria-pressed", String(on));
+    try{ localStorage.setItem("pitchMode", on?"1":"0"); }catch(e){}
+  };
+  btn.addEventListener("click", ()=>set(!document.body.classList.contains("pitch-on")));
+  try{ if (localStorage.getItem("pitchMode")==="1") set(true); }catch(e){}
+}
+
+/* ===================== reveal the rest ===================== */
+document.querySelectorAll(".reveal").forEach(elm=>{ if (!inits.has(elm)) onVisible(elm); });
+</script>
+</body>
+</html>
