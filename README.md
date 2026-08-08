@@ -40,8 +40,12 @@ animation pauses off-screen and honors reduced motion.
    closing).
 
 **Pitch mode** (toggle, top-right): reveals rep-only talk tracks, discovery
-questions, and objection counters under each section. The setting persists on
-the rep's phone.
+questions, and objection counters under each section, plus a floating
+**guided pitch bar** — ‹ › steps that walk the seven beats of the pitch in
+order (hook → 7 pm story → live simulator → lag test → price truth → concede
+the ties → close), auto-scrolling to each card and re-firing its animation
+live so every proof plays fresh in front of the customer. The setting persists
+on the rep's phone.
 
 ## Make it yours
 
@@ -50,8 +54,22 @@ Every number a prospect sees lives in the `CONFIG` object at the top of the
 pricing, promo length, scenario list, CTA link, and SMS text. Edit it for your
 market; everything downstream (race clocks, charts, totals, table) recomputes.
 
-Open `index.html` directly in any browser, or host it (GitHub Pages works) and
-save it to the rep's phone home screen.
+Open `index.html` directly in any browser, or deploy it (below) and save it to
+the rep's phone home screen — it ships a home-screen icon and app-style meta
+tags, and runs fully offline once loaded.
+
+## Deploying on Vercel
+
+The repo is a zero-build static site: `vercel.json` is included, `index.html`
+is the only entry point, and there are no dependencies or build step — import
+the repo into Vercel and it deploys as-is.
+
+- Every push to a branch gets an automatic **preview URL**; production deploys
+  from the project's production branch (usually `main`), so merge this branch
+  to go live.
+- After deploying, paste your live URL into `CONFIG.ctas.smsBody` so the
+  **Text me this** button delivers the page to the customer's phone, and point
+  `CONFIG.ctas.checkUrl` at your real availability/order link.
 
 ## Design notes
 

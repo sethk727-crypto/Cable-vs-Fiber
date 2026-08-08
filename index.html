@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0c10">
+<meta name="description" content="Fiber vs cable, side by side — an interactive doorstep demo: upload race, live congestion simulator, lag test, and the 24-month bill.">
+<meta property="og:title" content="Fiber vs Cable — The Doorstep Demo">
+<meta property="og:description" content="Watch the same job run on both networks: the upload race, a live neighborhood congestion simulator, and the 24-month math.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='22' cy='32' r='9' fill='%23ffc800'/><circle cx='42' cy='32' r='9' fill='%233987e5'/></svg>">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fiber vs Cable">
 <title>Fiber vs Cable — The Doorstep Demo</title>
 <style>
   /* ---------- tokens (single committed dark look, tuned for outdoor phone use) ---------- */
@@ -313,11 +323,53 @@
   /* ---------- reveal ---------- */
   .reveal{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
   .reveal.in{opacity:1;transform:none}
+  .card,section,.coach{scroll-margin-top:64px}
+
+  /* hero entrance stagger */
+  .hero .eyebrow,.hero h1,.hero .sub,.hero .legend{opacity:0;transform:translateY(10px);animation:heroIn .6s ease forwards}
+  .hero h1{animation-delay:.08s}
+  .hero .sub{animation-delay:.16s}
+  .hero .legend{animation-delay:.24s}
+  @keyframes heroIn{to{opacity:1;transform:none}}
+
+  /* attention pop + guided-step glow */
+  .pop{animation:pop .55s cubic-bezier(.34,1.56,.64,1)}
+  @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .step-glow{animation:stepGlow 1.8s ease}
+  @keyframes stepGlow{
+    0%{box-shadow:0 0 0 0 rgba(255,200,0,0)}
+    25%{box-shadow:0 0 0 3px rgba(255,200,0,.45)}
+    100%{box-shadow:0 0 0 0 rgba(255,200,0,0)}
+  }
+
+  /* ---------- guided pitch flow bar ---------- */
+  .flow-bar{
+    position:fixed;left:12px;right:12px;z-index:60;display:none;justify-content:center;
+    bottom:calc(102px + env(safe-area-inset-bottom));pointer-events:none;
+  }
+  body.pitch-on .flow-bar{display:flex}
+  body.pitch-on{padding-bottom:calc(172px + env(safe-area-inset-bottom))}
+  .flow-inner{
+    pointer-events:auto;display:flex;align-items:center;gap:10px;
+    background:rgba(23,28,37,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,200,0,.4);border-radius:999px;padding:6px 8px;
+    box-shadow:0 12px 32px rgba(0,0,0,.55);
+  }
+  .flow-btn{
+    width:42px;height:42px;border-radius:50%;flex:none;
+    background:var(--surface-2);border:1px solid var(--hairline);
+    display:grid;place-items:center;font-size:17px;color:var(--ink);
+  }
+  .flow-btn.primary{background:var(--brand);color:#191100;border-color:var(--brand);font-weight:800}
+  .flow-btn:active{transform:translateY(1px)}
+  .flow-label{min-width:148px;text-align:center;font-size:13px;font-weight:700;color:var(--ink);line-height:1.25}
+  .flow-label small{display:block;font-weight:700;color:var(--muted);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
 
   @media (prefers-reduced-motion: reduce){
     html{scroll-behavior:auto}
     *,*::before,*::after{animation:none !important;transition:none !important}
     .reveal{opacity:1;transform:none}
+    .hero .eyebrow,.hero h1,.hero .sub,.hero .legend{opacity:1;transform:none}
   }
 </style>
 </head>
@@ -530,7 +582,7 @@
     <p><b>“Need to ask my spouse.”</b> → “Of course. Tap <b>Text me this</b> and you’ll both have it tonight.”</p>
   </div>
 
-  <section class="card reveal" aria-label="Side by side comparison table">
+  <section class="card reveal" id="compareCard" aria-label="Side by side comparison table">
     <table id="compareTable">
       <thead>
         <tr>
@@ -545,7 +597,7 @@
   </section>
 
   <!-- ============ 4 · DECIDE ============ -->
-  <div class="coach">
+  <div class="coach" id="coachClose">
     <span class="tag">🎤 SAY THIS</span>
     <p><b>Close, low pressure:</b> “Two options — we check your address right now, takes 30 seconds… or I text you this page and you look tonight. Which is easier?”</p>
   </div>
@@ -556,6 +608,14 @@
     <p>Animations are sped-up illustrations; the clocks and totals show real computed values from the figures above. The “7 o’clock slowdown” curve is an illustrative shared-node pattern, not a measurement of any specific address.</p>
   </footer>
 </main>
+
+<div class="flow-bar" role="group" aria-label="Guided pitch steps">
+  <div class="flow-inner">
+    <button class="flow-btn" id="flowPrev" aria-label="Previous pitch step">‹</button>
+    <span class="flow-label" id="flowLabel" aria-live="polite"><small>Pitch · 1/7</small>The hook</span>
+    <button class="flow-btn primary" id="flowNext" aria-label="Next pitch step">›</button>
+  </div>
+</div>
 
 <div class="cta-bar">
   <div class="cta-inner">
@@ -628,7 +688,8 @@ const CONFIG = {
   },
   ctas: {
     checkUrl: "https://www.brightspeed.com/",   // ← rep: your availability / order link
-    smsBody: "Hi! Here's that fiber vs cable comparison I showed you — reply here and I'll check your address. — Your Brightspeed fiber rep",
+    // ← paste your live Vercel URL below so "Text me this" delivers the page
+    smsBody: "Hi! Here's the fiber vs cable comparison I showed you: https://YOUR-PROJECT.vercel.app — reply here and I'll check your address. — Your Brightspeed fiber rep",
     micro: "30 seconds · no credit check to see prices",
   },
   disclaimer: "Example plans, speeds, and prices for illustration only — offers vary by address and change over time. Latency figures are typical ranges. Verify current pricing, speeds, and terms for this address before ordering. Spectrum is a trademark of Charter Communications; Brightspeed is a trademark of Connect Holding LLC.",
@@ -638,6 +699,8 @@ const CONFIG = {
 const $ = s => document.querySelector(s);
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 if (!reduced) document.body.classList.add("anim");
+const DEMO = {};   // replayable animations, driven by the guided pitch flow
+const rePop = el => { el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); };
 
 const secsFor = (gb, mbps) => gb * 8000 / mbps;
 function fmtDur(s){
@@ -755,6 +818,7 @@ const race = (() => {
       if (pC >= 1 && !done){
         done = true; fillC.classList.add("done"); ckC.textContent = fmtClock(Math.round(tC));
         vdC.textContent = "done in " + fmtDur(tC); ff.classList.remove("show");
+        rePop($("#heroMult"));
       }
       if (!done) raf = requestAnimationFrame(tick);
     })(last);
@@ -763,6 +827,7 @@ const race = (() => {
   return { run };
 })();
 onVisible($("#raceCard"), () => race.run());
+DEMO.race = () => race.run();
 
 /* ===================== svg chart utils ===================== */
 const NS = "http://www.w3.org/2000/svg";
@@ -801,7 +866,7 @@ function lineChart(host, opts){
   }
   host.append(svg);
 
-  // draw-in animation
+  // draw-in animation (+ replay for the guided pitch)
   if (!reduced){
     for (const p of paths){
       const L = p.getTotalLength();
@@ -809,7 +874,18 @@ function lineChart(host, opts){
       p.style.transition = "stroke-dashoffset 1.3s ease .15s";
     }
     opts.onDraw = () => paths.forEach(p => p.style.strokeDashoffset = 0);
-  } else opts.onDraw = ()=>{};
+    opts.replay = () => {
+      for (const p of paths){
+        const L = p.getTotalLength();
+        p.style.transition = "none"; p.style.strokeDashoffset = L;
+      }
+      void svg.getBoundingClientRect();
+      for (const p of paths){
+        p.style.transition = "stroke-dashoffset 1.3s ease .15s";
+        p.style.strokeDashoffset = 0;
+      }
+    };
+  } else { opts.onDraw = ()=>{}; opts.replay = ()=>{}; }
 
   // annotations layer (after paths so labels sit on top)
   if (opts.annotate) opts.annotate(svg, X, Y);
@@ -871,15 +947,20 @@ function lineChart(host, opts){
     }
   });
   onVisible($("#dayCard"), day.onDraw);
+  DEMO.day = () => day.replay();
 }
 
 /* ===================== latency ===================== */
-onVisible($("#pingCard"), ()=>{
-  countUp($("#msFiber"), F.latencyMs, {dur:900});
-  countUp($("#msCable"), C.latencyMs, {dur:1400});
-  $("#pingNote").innerHTML =
-    `Cable’s wait is <b>${(C.latencyMs/F.latencyMs).toFixed(1)}× longer</b> here — you feel it on <b>video calls</b> and in <b>games</b>. Typical figures (${F.latencyMs} vs ${C.latencyMs} ms); every network varies.`;
-});
+{
+  const runPing = ()=>{
+    countUp($("#msFiber"), F.latencyMs, {dur:900});
+    countUp($("#msCable"), C.latencyMs, {dur:1400});
+    $("#pingNote").innerHTML =
+      `Cable’s wait is <b>${(C.latencyMs/F.latencyMs).toFixed(1)}× longer</b> here — you feel it on <b>video calls</b> and in <b>games</b>. Typical figures (${F.latencyMs} vs ${C.latencyMs} ms); every network varies.`;
+  };
+  onVisible($("#pingCard"), runPing);
+  DEMO.ping = runPing;
+}
 
 /* ===================== network capacity simulator ===================== */
 {
@@ -1100,6 +1181,11 @@ onVisible($("#pingCard"), ()=>{
     if ("ResizeObserver" in window)
       new ResizeObserver(()=>{ if (stage.clientWidth !== lastW){ buildLayout(); stats(); } }).observe(stage);
   }
+  DEMO.sim = (c,t)=>{
+    if (typeof c==="number") conn = c;
+    if (typeof t==="number") tod = t;
+    refresh(true);
+  };
 }
 
 /* ===================== price chart ===================== */
@@ -1135,22 +1221,24 @@ onVisible($("#pingCard"), ()=>{
       }
     }
   });
-  onVisible($("#priceCard"), ()=>{
-    chart.onDraw();
+  const runPriceCounts = ()=>{
     countUp($("#totFiber"), totF, {fmt:v=>money(Math.round(v)), dur:1100});
     countUp($("#totCable"), totC, {fmt:v=>money(Math.round(v)), dur:1100});
     const diff = totC - totF;
     $("#priceTakeaway").textContent = diff>0
       ? `the “cheaper” promo costs ${money(diff)} more over 2 years`
       : `about the same over 2 years — the difference is what you get for it`;
-  });
+  };
+  onVisible($("#priceCard"), ()=>{ chart.onDraw(); runPriceCounts(); });
+  DEMO.price = ()=>{ chart.replay(); runPriceCounts(); };
 }
 
 /* ===================== scenarios ===================== */
 {
   const chipsBox = $("#chips");
-  let activeBtn = null;
+  let activeBtn = null, current = CONFIG.scenarios[0];
   function show(sc, animate=true){
+    current = sc;
     const vF = sc.direction==="up"?F.up:F.down, vC = sc.direction==="up"?C.up:C.down;
     const sF = secsFor(sc.gb,vF), sC = secsFor(sc.gb,vC);
     $("#scenarioDir").innerHTML =
@@ -1177,6 +1265,7 @@ onVisible($("#pingCard"), ()=>{
     if (i===0) activeBtn = b;
   });
   onVisible($("#scenarioCard"), ()=>show(CONFIG.scenarios[0]));
+  DEMO.scenario = ()=>show(current);
 }
 
 /* ===================== comparison table ===================== */
@@ -1213,6 +1302,32 @@ onVisible($("#pingCard"), ()=>{
   };
   btn.addEventListener("click", ()=>set(!document.body.classList.contains("pitch-on")));
   try{ if (localStorage.getItem("pitchMode")==="1") set(true); }catch(e){}
+}
+
+/* ===================== guided pitch flow ===================== */
+{
+  const steps = [
+    { sel:"#raceCard",    label:"The hook",          run:()=>DEMO.race() },
+    { sel:"#dayCard",     label:"The 7 pm story",    run:()=>DEMO.day() },
+    { sel:"#simCard",     label:"Their street, live",run:()=>DEMO.sim(2,2) },
+    { sel:"#pingCard",    label:"The lag test",      run:()=>DEMO.ping() },
+    { sel:"#priceCard",   label:"The price truth",   run:()=>DEMO.price() },
+    { sel:"#compareCard", label:"Concede the ties",  run:()=>{} },
+    { sel:"#coachClose",  label:"The close",         run:()=>rePop($("#ctaCheck")) },
+  ];
+  let idx = 0, timer = 0;
+  function go(i){
+    idx = (i+steps.length) % steps.length;
+    const st = steps[idx], el = document.querySelector(st.sel);
+    $("#flowLabel").innerHTML = `<small>Pitch · ${idx+1}/${steps.length}</small>${st.label}`;
+    el.classList.add("in");
+    el.scrollIntoView({behavior: reduced ? "auto" : "smooth", block: "start"});
+    el.classList.remove("step-glow"); void el.offsetWidth; el.classList.add("step-glow");
+    clearTimeout(timer);
+    timer = setTimeout(st.run, reduced ? 60 : 620);
+  }
+  $("#flowNext").addEventListener("click", ()=>go(idx+1));
+  $("#flowPrev").addEventListener("click", ()=>go(idx-1));
 }
 
 /* ===================== reveal the rest ===================== */
