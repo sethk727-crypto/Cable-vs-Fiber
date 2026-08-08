@@ -17,10 +17,22 @@ at the doorstep. The rep talks; the visual proves.
    networks, with real computed times (sped-up playback, honest clocks) and a
    `30×` hero stat. Tap **Replay** for the dramatic beat.
 2. **Evaluate** — a bento of animated proof cards: the **7 o'clock slowdown**
-   (shared-node congestion curve), the **lag test** (ping animation), **glass vs
-   copper** (dedicated line vs shared node diagram), the **24-month bill**
-   (promo step-up chart with 2-year totals), and a **scenario picker** that
-   converts speeds into "back up 5,000 photos" time.
+   (shared-node congestion curve), the **lag test** (ping animation), the
+   **live capacity simulator** (below), the **24-month bill** (promo step-up
+   chart with 2-year totals), and a **scenario picker** that converts speeds
+   into "back up 5,000 photos" time.
+
+### The capacity simulator
+
+A canvas particle simulation of one street with five homes, in the style of a
+network-topology explorer: **fiber as a dedicated star** (one strand per home,
+orderly packets, both directions equally fast) vs **cable as a shared bus**
+(one trunk split at a node — packets jitter and queue on the trunk, upstream
+dots crawl). Steppers switch **Connection** (Fiber / Cable / Both, side by
+side) and **Time of day** (Morning / Afternoon / Evening Peak); packet speed,
+spawn rate, status, latency, and per-home delivered speed react live — step
+Evening Peak and watch the cable trunk jam while fiber doesn't move. The
+animation pauses off-screen and honors reduced motion.
 3. **Trust** — a straight side-by-side table that concedes the ties (no
    contract, no data cap on both) so the upload row lands harder.
 4. **Decide** — sticky dual-intent CTAs: *See if my address has fiber* (30-second

@@ -206,11 +206,38 @@
   .ping-ms{font-size:22px;font-weight:800;letter-spacing:-.02em}
   .ping-ms small{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0}
 
-  /* glass vs copper */
-  .pipes svg{width:100%;height:auto;display:block}
-  body.anim .flow-f{stroke-dasharray:7 11;animation:flow 1.1s linear infinite}
-  body.anim .flow-c{stroke-dasharray:5 13;animation:flow 3.2s linear infinite}
-  @keyframes flow{to{stroke-dashoffset:-18}}
+  /* network capacity simulator */
+  .sim-stage{position:relative;margin-top:4px}
+  .sim-stage canvas{position:absolute;inset:0;width:100%;height:100%}
+  .sim-chip{
+    position:absolute;display:grid;place-items:center;pointer-events:none;white-space:nowrap;
+    background:#232936;border:1px solid rgba(255,255,255,.22);border-radius:9px;
+    font-weight:700;color:var(--ink);
+  }
+  .sim-chip.hub{border-color:rgba(154,188,255,.5)}
+  .panel-lab{position:absolute;left:12px;font-size:11px;color:var(--muted);font-weight:600}
+  .sim-stats{
+    display:flex;flex-direction:column;gap:8px;margin-top:14px;
+    border-top:1px solid var(--hairline);padding-top:12px;
+  }
+  .sim-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2);flex-wrap:wrap}
+  .sim-row .swatch{width:9px;height:9px;border-radius:50%;flex:none}
+  .sim-row b{color:var(--ink)}
+  .sim-ms{font-variant-numeric:tabular-nums}
+  .st-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+  .st-good{background:var(--good)} .st-bad{background:var(--bad)} .st-mid{background:var(--muted)}
+  .stepper{display:flex;align-items:center;gap:8px;margin-top:10px}
+  .stepper .lab{flex:1;font-size:13.5px;font-weight:600;color:var(--ink-2)}
+  .stepper .arrow{
+    width:42px;height:42px;border-radius:12px;flex:none;
+    background:var(--surface-2);border:1px solid var(--hairline);
+    display:grid;place-items:center;font-size:16px;color:var(--ink);
+  }
+  .stepper .arrow:active{transform:translateY(1px)}
+  .stepper .val{
+    min-width:132px;text-align:center;font-size:13.5px;font-weight:700;
+    background:var(--surface-2);border:1px solid var(--hairline);border-radius:12px;padding:11px 10px;
+  }
 
   /* scenarios */
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
@@ -395,7 +422,7 @@
       <p class="note">Cable bandwidth is <b>shared by your street</b> at a neighborhood node, so evenings sag when everyone streams. A fiber line runs <b>from the network to your home</b> — no rush hour. Exact dips vary by node and neighborhood.</p>
     </section>
 
-    <section class="card reveal" id="pingCard" aria-label="Latency comparison">
+    <section class="card span2 reveal" id="pingCard" aria-label="Latency comparison">
       <h2>The lag test</h2>
       <p class="hint">Ping — the wait between your click and the response</p>
       <div class="ping-lane">
@@ -423,11 +450,29 @@
       <p class="note" id="pingNote">You feel this on <b>video calls</b> and in <b>games</b> — frozen faces and late clicks. Typical figures; every network varies.</p>
     </section>
 
-    <section class="card reveal pipes" id="pipeCard" aria-label="Fiber versus cable line diagram">
-      <h2>Glass vs copper</h2>
-      <p class="hint">What’s actually buried in the street</p>
-      <div id="pipeSvg"></div>
-      <p class="note"><b>Fiber:</b> light through glass, straight to your home. <b>Cable:</b> electricity through copper that the whole street shares.</p>
+    <div class="coach" style="grid-column:1/-1">
+      <span class="tag">🎤 SAY THIS</span>
+      <p>“This is your street.” Show <b>Both</b> at <b>Evening Peak</b> — the cable trunk jams while fiber keeps flowing. Then step through the times of day: <b>fiber never changes</b>. That’s the whole pitch in one screen.</p>
+    </div>
+
+    <section class="card span2 reveal" id="simCard" aria-label="Live network capacity simulator">
+      <h2>Network capacity, live</h2>
+      <p class="hint">One street, five homes — watch what sharing a line does</p>
+      <div class="sim-stage" id="simStage"><canvas id="simCanvas" role="img"></canvas></div>
+      <div class="sim-stats" id="simStats" aria-live="polite"></div>
+      <div class="stepper">
+        <span class="lab">Connection</span>
+        <button class="arrow" id="connPrev" aria-label="Previous connection type">‹</button>
+        <span class="val" id="connVal">Both</span>
+        <button class="arrow" id="connNext" aria-label="Next connection type">›</button>
+      </div>
+      <div class="stepper">
+        <span class="lab">Time of day</span>
+        <button class="arrow" id="todPrev" aria-label="Earlier time of day">‹</button>
+        <span class="val" id="todVal">Evening Peak</span>
+        <button class="arrow" id="todNext" aria-label="Later time of day">›</button>
+      </div>
+      <p class="note"><b>Fiber</b> is a star: your own strand of glass, hub to home — light both ways, so upstream dots move as fast as downstream. <b>Cable</b> is a bus: one copper trunk the street shares, split at a node — and its upstream dots crawl. Illustrative simulation; congestion varies by node, and latency figures are scenario examples.</p>
     </section>
 
     <section class="card span2 reveal" id="priceCard" aria-label="Price over 24 months chart">
@@ -572,6 +617,14 @@ const CONFIG = {
   dayCurve: { // % of advertised speed delivered, hourly 12am → 12am (illustrative)
     fiber: [99,99,99,99,99,99,99,98,99,99,98,99,99,98,99,99,98,98,97,97,97,98,99,99,99],
     cable: [97,97,97,97,97,97,96,95,94,93,93,92,91,91,90,88,84,76,66,58,60,70,84,93,96],
+  },
+  sim: { // capacity simulator — scenario figures, illustrative
+    fiber: { latency: { morning:10, afternoon:9, evening:12 } },   // status: always Optimal
+    cable: {
+      latency:   { morning:28, afternoon:54, evening:145 },
+      status:    { morning:"Stable", afternoon:"Average", evening:"Congested" },
+      delivered: { morning:[.85,1], afternoon:[.55,.85], evening:[.2,.5] },  // × advertised, per home
+    },
   },
   ctas: {
     checkUrl: "https://www.brightspeed.com/",   // ← rep: your availability / order link
@@ -828,32 +881,225 @@ onVisible($("#pingCard"), ()=>{
     `Cable’s wait is <b>${(C.latencyMs/F.latencyMs).toFixed(1)}× longer</b> here — you feel it on <b>video calls</b> and in <b>games</b>. Typical figures (${F.latencyMs} vs ${C.latencyMs} ms); every network varies.`;
 });
 
-/* ===================== glass vs copper svg ===================== */
+/* ===================== network capacity simulator ===================== */
 {
-  const sw = "var(--axis)";
-  $("#pipeSvg").innerHTML = `
-  <svg viewBox="0 0 300 168" role="img" aria-label="Diagram: a dedicated fiber line runs straight from the network to one home. The cable line runs from the network to a shared neighborhood node, which splits to five homes.">
-    <text x="8" y="16" class="anno-text">Fiber — your own line</text>
-    <circle cx="16" cy="42" r="7" fill="none" stroke="${sw}" stroke-width="1.5"/>
-    <text x="4" y="62" class="axis-text">network</text>
-    <path d="M24 42 H262" stroke="var(--surface-2)" stroke-width="6" stroke-linecap="round"/>
-    <path class="flow-f" d="M24 42 H262" stroke="var(--fiber)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-    <path d="M270 46 v-8 l8 -7 8 7 v8 z" fill="none" stroke="var(--ink-2)" stroke-width="1.5" stroke-linejoin="round"/>
-    <text x="278" y="62" text-anchor="middle" class="axis-text">you</text>
+  const S = CONFIG.sim, HOMES = 5;
+  const stage = $("#simStage"), cv = $("#simCanvas"), ctx = cv.getContext("2d");
+  const CONNS = ["Fiber","Cable","Both"], TODS = ["Morning","Afternoon","Evening Peak"], TKEY = ["morning","afternoon","evening"];
+  let conn = 2, tod = 2;                      // default: Both · Evening Peak
+  let panels = [], particles = [], acc = [];
+  let active = false, inView = false, raf = 0, last = 0, lastW = 0;
 
-    <text x="8" y="96" class="anno-text">Cable — one line, whole street</text>
-    <circle cx="16" cy="122" r="7" fill="none" stroke="${sw}" stroke-width="1.5"/>
-    <text x="4" y="142" class="axis-text">network</text>
-    <path d="M24 122 H150" stroke="var(--surface-2)" stroke-width="6" stroke-linecap="round"/>
-    <path class="flow-c" d="M24 122 H150" stroke="var(--cable)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-    <rect x="150" y="112" width="20" height="20" rx="4" fill="none" stroke="${sw}" stroke-width="1.5"/>
-    <text x="160" y="150" text-anchor="middle" class="axis-text">shared node</text>
-    ${[132,112,152].map((y,k)=>`
-      <path d="M170 122 C 200 122 200 ${y} 226 ${y}" stroke="var(--surface-2)" stroke-width="4" fill="none" stroke-linecap="round"/>
-      <path class="flow-c" d="M170 122 C 200 122 200 ${y} 226 ${y}" stroke="var(--cable)" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-      <path d="M232 ${y+4} v-6 l6 -5 6 5 v6 z" fill="none" stroke="var(--ink-2)" stroke-width="1.3" stroke-linejoin="round"/>`).join("")}
-    <text x="262" y="120" class="axis-text">+ more…</text>
-  </svg>`;
+  const load = () => ({morning:.22, afternoon:.55, evening:1})[TKEY[tod]];
+  const lerp = (a,b,t) => a+(b-a)*t;
+
+  /* paths: sampled polylines with cumulative arc length */
+  function quad(a,c,b,N=22){
+    const o=[]; for(let i=0;i<=N;i++){ const t=i/N, u=1-t;
+      o.push({x:u*u*a.x+2*u*t*c.x+t*t*b.x, y:u*u*a.y+2*u*t*c.y+t*t*b.y}); }
+    return o;
+  }
+  function mkPath(pts){
+    const cum=[0];
+    for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+    return {pts, cum, len: cum[cum.length-1]};
+  }
+  function pointAt(P,s){
+    s = Math.max(0, Math.min(P.len, s));
+    let i=1; while (P.cum[i] < s) i++;
+    const t = (s-P.cum[i-1]) / ((P.cum[i]-P.cum[i-1]) || 1);
+    return {x: lerp(P.pts[i-1].x, P.pts[i].x, t), y: lerp(P.pts[i-1].y, P.pts[i].y, t)};
+  }
+
+  function addChip(txt,x,y,w2,h2,hub,small){
+    const d=document.createElement("div");
+    d.className = "sim-chip"+(hub?" hub":"");
+    d.style.cssText = `left:${x}px;top:${y}px;width:${w2}px;height:${h2}px;font-size:${small?10.5:12}px`;
+    d.textContent = txt; stage.append(d);
+  }
+  function addLab(txt,y){
+    const d=document.createElement("div"); d.className="panel-lab";
+    d.style.top = y+"px"; d.textContent = txt; stage.append(d);
+  }
+
+  function buildLayout(){
+    const w = stage.clientWidth; lastW = w;
+    const both = conn===2, H = both ? 396 : 288;
+    stage.style.height = H+"px";
+    const dpr = Math.min(2.5, window.devicePixelRatio||1);
+    cv.width = Math.round(w*dpr); cv.height = Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    stage.querySelectorAll(".sim-chip,.panel-lab").forEach(n=>n.remove());
+    panels = [];
+
+    const mk = (net, y0, y1, small) => {
+      const cw = small?52:62, ch = small?24:30, hw = small?54:62, hh = small?26:32, pad = small?15:20;
+      const hubY = (y0+y1)/2, ax = 10+hw+4, bx = w-cw-14;
+      const homes = Array.from({length:HOMES},(_,i)=>({x:bx, y:lerp(y0+pad, y1-pad, i/(HOMES-1))}));
+      const p = {net, hubY, small, k:(bx-ax)/300, fiber:[], cable:[], sx:0};
+      if (net==="fiber")
+        p.fiber = homes.map(h=>mkPath(quad({x:ax,y:hubY},{x:lerp(ax,bx,.45),y:lerp(hubY,h.y,.3)},h)));
+      else {
+        p.sx = bx-(small?46:58);
+        const trunkLen = p.sx-ax;
+        p.cable = homes.map(h=>{
+          const P = mkPath([{x:ax,y:hubY}, ...quad({x:p.sx,y:hubY},{x:p.sx+(small?22:30),y:lerp(hubY,h.y,.8)},h)]);
+          P.trunkLen = trunkLen; return P;
+        });
+      }
+      addChip("ISP hub", 10, hubY-hh/2, hw, hh, true, small);
+      homes.forEach(h=>addChip("Home", w-cw-10, h.y-ch/2, cw, ch, false, small));
+      p.ax = ax; panels.push(p);
+    };
+
+    if (conn===0){ mk("fiber", 6, H-28, false); addLab("Dedicated star — one strand each", H-20); }
+    else if (conn===1){ mk("cable", 6, H-28, false); addLab("Shared bus — one trunk for the street", H-20); }
+    else {
+      mk("fiber", 4, 176, true);   addLab("Fiber · dedicated star — one strand each", 180);
+      mk("cable", 206, 372, true); addLab("Cable · shared bus — one trunk for the street", 376);
+    }
+    reseed();
+  }
+
+  /* particle physics — speeds react live to the time-of-day control */
+  const speeds = p => {
+    const L = load(), k = p.k;
+    return { f:120*k, cTrunk:135*k*(1-.74*L), cBranch:112*k, cUp:42*k };
+  };
+  const rates = p => {
+    const L = load();
+    return p.net==="fiber" ? {down:1.1*HOMES, up:.5*HOMES} : {down:2.2+6.8*L, up:.55};
+  };
+  function spawnOne(p, dir){
+    if (particles.length > 170) return;
+    const paths = p.net==="fiber" ? p.fiber : p.cable;
+    const path = paths[(Math.random()*paths.length)|0];
+    const j = (Math.random()*2-1)*(p.small?2.6:3.4);   // queue jitter — shared line is messy
+    particles.push({p, path, dir, j, s: dir>0 ? 0 : path.len});
+  }
+  function step(dt){
+    panels.forEach((p,i)=>{
+      const r = rates(p), a = acc[i];
+      a.d += r.down*dt; a.u += r.up*dt;
+      while (a.d>=1){ a.d--; spawnOne(p,+1); }
+      while (a.u>=1){ a.u--; spawnOne(p,-1); }
+    });
+    const keep=[];
+    for (const q of particles){
+      const sp = speeds(q.p);
+      const v = q.p.net==="fiber" ? sp.f
+              : q.dir<0 ? sp.cUp
+              : (q.s < q.path.trunkLen ? sp.cTrunk : sp.cBranch);
+      q.s += v*q.dir*dt;
+      if (q.dir>0 ? q.s < q.path.len : q.s > 0) keep.push(q);
+    }
+    particles = keep;
+  }
+  function reseed(){
+    particles = []; acc = panels.map(()=>({d:.9,u:.4}));
+    for (let i=0;i<80;i++) step(.06);        // warm start so it never opens empty
+    draw();
+  }
+
+  function draw(){
+    const w = stage.clientWidth, H = parseFloat(stage.style.height)||288;
+    ctx.clearRect(0,0,w,H);
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (const p of panels){
+      const laneW = p.small?7:9;
+      ctx.strokeStyle = "#1f2531";
+      if (p.net==="fiber"){
+        ctx.lineWidth = laneW;
+        for (const P of p.fiber){
+          ctx.beginPath(); P.pts.forEach((pt,i)=> i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y)); ctx.stroke();
+        }
+      } else {
+        ctx.lineWidth = p.small?11:13;
+        ctx.beginPath(); ctx.moveTo(p.ax, p.hubY); ctx.lineTo(p.sx, p.hubY); ctx.stroke();
+        ctx.lineWidth = laneW;
+        for (const P of p.cable){
+          ctx.beginPath();
+          P.pts.slice(1).forEach((pt,i)=> i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));
+          ctx.stroke();
+        }
+        const ns = p.small?11:14;                     // the shared node
+        ctx.fillStyle = "#232936"; ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(p.sx-ns/2, p.hubY-ns/2, ns, ns, 3.5);
+        else ctx.rect(p.sx-ns/2, p.hubY-ns/2, ns, ns);
+        ctx.fill(); ctx.stroke();
+      }
+    }
+    for (const q of particles){
+      const pt = pointAt(q.path, q.s);
+      let y = pt.y;
+      if (q.p.net==="cable"){  // jitter rides the shared trunk, fades past the node
+        const fade = q.s < q.path.trunkLen ? 1 : Math.max(0, 1-(q.s-q.path.trunkLen)/40);
+        y += q.j*fade;
+      }
+      const col = q.p.net==="fiber" ? "#c98500" : "#3987e5";
+      const r = q.p.small?2.4:3.1;
+      ctx.fillStyle = col;
+      ctx.globalAlpha = .22; ctx.beginPath(); ctx.arc(pt.x,y,r+2.6,0,7); ctx.fill();
+      ctx.globalAlpha = 1;   ctx.beginPath(); ctx.arc(pt.x,y,r,0,7); ctx.fill();
+    }
+  }
+
+  function stats(){
+    const t = TKEY[tod], rows = [];
+    if (conn!==1)
+      rows.push(`<div class="sim-row"><span class="swatch" style="background:var(--fiber)"></span><b>Fiber</b>` +
+        `<span><span class="st-dot st-good"></span>Optimal</span>` +
+        `<span class="sim-ms"><b>${S.fiber.latency[t]} ms</b> ping</span>` +
+        `<span>· ${F.down} Mbps per home, any hour</span></div>`);
+    if (conn!==0){
+      const st = S.cable.status[t], cls = st==="Congested"?"st-bad":st==="Average"?"st-mid":"st-good";
+      const dv = S.cable.delivered[t];
+      const lo = Math.round(C.down*dv[0]/10)*10, hi = Math.round(C.down*dv[1]/10)*10;
+      rows.push(`<div class="sim-row"><span class="swatch" style="background:var(--cable)"></span><b>Cable</b>` +
+        `<span><span class="st-dot ${cls}"></span>${st}</span>` +
+        `<span class="sim-ms"><b>${S.cable.latency[t]} ms</b> ping</span>` +
+        `<span>· ≈${lo}–${hi} of ${C.down} Mbps per home</span></div>`);
+    }
+    $("#simStats").innerHTML = rows.join("");
+    cv.setAttribute("aria-label",
+      `Network simulation at ${TODS[tod].toLowerCase()}. ` +
+      (conn!==1 ? `Fiber: dedicated lines, optimal, ${S.fiber.latency[t]} ms. ` : "") +
+      (conn!==0 ? `Cable: shared trunk, ${S.cable.status[t].toLowerCase()}, ${S.cable.latency[t]} ms.` : ""));
+  }
+
+  function frame(now){
+    if (!active){ raf = 0; return; }
+    const dt = Math.min(.05,(now-last)/1000)||.016; last = now;
+    step(dt); draw();
+    raf = requestAnimationFrame(frame);
+  }
+  function setActive(on){
+    on = on && inView && !document.hidden && !reduced;
+    if (on===active) return;
+    active = on;
+    if (on){ last = performance.now(); raf = requestAnimationFrame(frame); }
+  }
+  function refresh(layoutChanged){
+    $("#connVal").textContent = CONNS[conn];
+    $("#todVal").textContent = TODS[tod];
+    if (layoutChanged) buildLayout();
+    else if (reduced) reseed();   // live speeds adapt on their own when animating
+    stats();
+  }
+  $("#connPrev").addEventListener("click",()=>{ conn=(conn+2)%3; refresh(true); });
+  $("#connNext").addEventListener("click",()=>{ conn=(conn+1)%3; refresh(true); });
+  $("#todPrev").addEventListener("click",()=>{ tod=(tod+2)%3; refresh(false); });
+  $("#todNext").addEventListener("click",()=>{ tod=(tod+1)%3; refresh(false); });
+
+  buildLayout(); stats();
+  if (!reduced){
+    new IntersectionObserver(es=>{ for (const e of es){ inView = e.isIntersecting; setActive(inView); } },
+      {threshold:.05}).observe($("#simCard"));
+    document.addEventListener("visibilitychange", ()=>setActive(inView));
+    if ("ResizeObserver" in window)
+      new ResizeObserver(()=>{ if (stage.clientWidth !== lastW){ buildLayout(); stats(); } }).observe(stage);
+  }
 }
 
 /* ===================== price chart ===================== */
