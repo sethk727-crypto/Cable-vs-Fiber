@@ -1,6 +1,6 @@
 /* Offline cache for the doorstep demo — network-first, cache fallback,
    so reps get fresh deploys when online and a working demo with no bars. */
-const CACHE = "fvc-v2";
+const CACHE = "fvc-v3";
 const ASSETS = ["./", "index.html", "capacity.html", "neighborhood.html", "diagnostic.html", "apple-touch-icon.png", "manifest.json"];
 
 self.addEventListener("install", e => {
