@@ -16,18 +16,27 @@ at the doorstep. The rep talks; the visual proves.
 | `prompts/d2d-visual-master-prompt.md` | The master system prompt (SaaS conversion architecture adapted for d2d visuals) used to design this page — paste into Claude to generate variants for other markets/providers |
 | `vercel.json` | Zero-build static deploy config |
 
-## Fiber brand switcher (Brightspeed / T-Mobile Fiber)
+## Selling-brand override (Brightspeed / T-Mobile Fiber)
 
-Both pages support a **fiber brand**: `Brightspeed Fiber` (amber) or
-`T-Mobile Fiber` (magenta `#E20074` — validated colorblind-safe against
-Spectrum blue, worst-pair CVD ΔE 19.3). Switching the brand restyles marks,
-accents, the CTA, and all wording (legends, race lanes, table headers, SMS
-text).
+The whole site runs off one **selling brand**: `Brightspeed Fiber` (amber /
+high-vis yellow) or `T-Mobile Fiber` (magenta `#E20074` — validated
+colorblind-safe against Spectrum blue, worst-pair CVD ΔE 19.3). Switching it
+rebrands **every page**: names, marks and chrome, race lanes, table headers,
+SMS text, the address-check CTA (brightspeed.com ↔ t-mobile.com fiber), the
+diagnostic's override switch + availability link — and when you sell T-Mobile,
+the diagnostic's wireless competitor relabels to a generic **"5G Home
+Internet"** so the tool never attacks your own brand.
 
-- On `capacity.html`: use the **Fiber Brand** stepper.
-- Anywhere: deep-link with `?brand=tmobile` or `?brand=brightspeed`.
-- The choice persists on the device (localStorage) and is shared between the
-  demo and the capacity page.
+**Where the input lives** (pick any — it's one shared setting):
+- `index.html`: "Who are you selling?" card above the footer
+- `neighborhood.html`: "Who are you selling?" card above the links
+- `diagnostic.html`: "You're selling" segmented control in the search card
+  (switches live, even mid-demo)
+- `capacity.html`: the **Fiber Brand** stepper
+- Anywhere: deep-link with `?brand=tmobile` or `?brand=brightspeed`
+
+The choice persists on the device (localStorage) and follows you across all
+pages.
 
 ## The capacity page
 

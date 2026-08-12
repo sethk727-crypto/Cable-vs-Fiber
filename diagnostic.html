@@ -36,7 +36,8 @@
     --accent:#0A84FF;
     --spectrum:#3987E5;      /* Spectrum corporate blue, stepped for dark */
     --tmo:#E20074;           /* T-Mobile magenta */
-    --bs:#E3FF00;            /* Brightspeed high-vis yellow (chrome only) */
+    --bs:#E3FF00;            /* selling-brand chrome — set per brand via JS */
+    --bs-ink:#0B0E14;        /* text on --bs */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
@@ -52,8 +53,8 @@
     transition:background .7s ease;
   }
   body.comp-spectrum{ --glow-a:rgba(57,135,229,.12); --glow-b:rgba(239,68,68,.08); }
-  body.comp-tmobile{ --glow-a:rgba(226,0,116,.13); --glow-b:rgba(239,68,68,.08); }
-  body.good{ --glow-a:rgba(34,197,94,.10); --glow-b:rgba(227,255,0,.05); }
+  body.comp-fw{ --glow-a:var(--fw-glow, rgba(226,0,116,.13)); --glow-b:rgba(239,68,68,.08); }
+  body.good{ --glow-a:rgba(34,197,94,.10); --glow-b:var(--glow-good, rgba(227,255,0,.05)); }
   a{color:inherit}
   button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:12px}
@@ -177,7 +178,7 @@
   .bscta{
     display:none;align-items:center;justify-content:center;gap:8px;
     min-height:58px;border-radius:16px;margin-top:12px;
-    background:var(--bs);color:#0B0E14;font-size:18px;font-weight:800;
+    background:var(--bs);color:var(--bs-ink);font-size:18px;font-weight:800;
     text-decoration:none;text-align:center;padding:12px;
   }
   body.good .bscta{display:flex}
@@ -194,7 +195,7 @@
     max-width:560px;margin:0 auto;width:100%;min-height:66px;border-radius:22px;
     display:flex;align-items:center;justify-content:space-between;gap:12px;
     padding:12px 14px 12px 18px;
-    background:var(--bs);border:2px solid var(--bs);color:#0B0E14;
+    background:var(--bs);border:2px solid var(--bs);color:var(--bs-ink);
     font-size:18px;font-weight:800;text-align:left;line-height:1.25;
     transition:background .5s ease,border-color .5s ease,color .5s ease;
   }
@@ -208,7 +209,7 @@
     position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;
     background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4);transition:transform .35s cubic-bezier(.3,1.4,.5,1);
   }
-  .fix[aria-pressed="true"]{background:var(--card-solid);border-color:rgba(227,255,0,.6);color:var(--ink)}
+  .fix[aria-pressed="true"]{background:var(--card-solid);border-color:var(--bs);color:var(--ink)}
   .fix[aria-pressed="true"] .knob-track{background:var(--good)}
   .fix[aria-pressed="true"] .knob{transform:translateX(24px)}
 
@@ -237,7 +238,7 @@
   </div>
 
   <h1>Infrastructure Node Diagnostic</h1>
-  <p class="sub">A <b>simulation</b> of what a typical connection looks like at 7 PM on the current provider — and what a dedicated <b>Brightspeed Fiber</b> line changes. Nothing is scanned; the address is only a label for the demo.</p>
+  <p class="sub">A <b>simulation</b> of what a typical connection looks like at 7 PM on the current provider — and what a dedicated <b id="sellName">Brightspeed Fiber</b> line changes. Nothing is scanned; the address is only a label for the demo.</p>
 
   <section class="card" id="searchCard">
     <div class="searchbar">
@@ -248,7 +249,12 @@
     <p class="seg-label">Select current node</p>
     <div class="seg" role="group" aria-label="Select the current provider to simulate">
       <button id="segSpectrum" aria-pressed="true"><span class="pdot" style="background:var(--spectrum)"></span>Spectrum</button>
-      <button id="segTmo" aria-pressed="false"><span class="pdot" style="background:var(--tmo)"></span>T-Mobile</button>
+      <button id="segTmo" aria-pressed="false"><span class="pdot" id="segTmoDot" style="background:var(--tmo)"></span><span id="segTmoName">T-Mobile</span></button>
+    </div>
+    <p class="seg-label">You're selling</p>
+    <div class="seg" role="group" aria-label="Select the fiber brand you are selling">
+      <button id="sellBs" aria-pressed="true"><span class="pdot" style="background:#E3FF00"></span>Brightspeed</button>
+      <button id="sellTmo" aria-pressed="false"><span class="pdot" style="background:#E20074"></span>T-Mobile</button>
     </div>
     <button class="run" id="runBtn">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
@@ -283,7 +289,7 @@
     <section class="card">
       <div class="grid2" id="callouts"></div>
       <a class="bscta" id="bsCta" href="https://www.brightspeed.com/" target="_blank" rel="noopener">
-        See if Brightspeed Fiber is at your address →
+        <span id="bsCtaText">See if Brightspeed Fiber is at your address →</span>
       </a>
     </section>
 
@@ -311,7 +317,21 @@ const $ = s => document.querySelector(s);
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const lerp = (a,b,t)=>a+(b-a)*t;
 
-/* ============ providers ============ */
+/* ============ the brand you're selling — site-wide override ============ */
+const SELLS = {
+  brightspeed: { key:"brightspeed", name:"Brightspeed Fiber", short:"Brightspeed", chrome:"#E3FF00", ink:"#0B0E14",
+                 url:"https://www.brightspeed.com/", glow:"rgba(227,255,0,.05)" },
+  tmobile:     { key:"tmobile", name:"T-Mobile Fiber", short:"T-Mobile", chrome:"#E20074", ink:"#ffffff",
+                 url:"https://www.t-mobile.com/home-internet/fiber", glow:"rgba(226,0,116,.07)" },
+};
+let sellKey = "brightspeed";
+try {
+  const qb = (new URLSearchParams(location.search).get("brand") || localStorage.getItem("fiberBrand") || "").toLowerCase();
+  if (SELLS[qb]) sellKey = qb;
+} catch(e){}
+const SELL = () => SELLS[sellKey];
+
+/* ============ providers (the "bad" state) ============ */
 const COMPS = {
   spectrum: {
     name:"Spectrum", color:"#3987E5", kind:"cable", peak:.28,
@@ -321,19 +341,27 @@ const COMPS = {
     load:["Loading a typical shared cable node…","Modeling evening neighborhood traffic…","Estimating peak-hour delays…"],
     aria:"Diagram: one shared cable trunk, pulsing, splitting into five struggling lines. Packets stutter and pile up on the trunk.",
   },
-  tmobile: {
-    name:"T-Mobile Home Internet", short:"T-Mobile", color:"#E20074", kind:"wireless", peak:.35,
+  fw: {}, // filled by refreshFW(): T-Mobile 5G when selling Brightspeed; generic 5G when selling T-Mobile
+};
+const FW_TMO = { name:"T-Mobile Home Internet", short:"T-Mobile", color:"#E20074" };
+const FW_GEN = { name:"5G Home Internet",       short:"5G Home",  color:"#8B5CF6" };
+const fwBase = () => sellKey==="tmobile" ? FW_GEN : FW_TMO;
+function refreshFW(){
+  const b = fwBase();
+  Object.assign(COMPS.fw, {
+    name:b.name, short:b.short, color:b.color, kind:"wireless", peak:.35,
     statusTitle:"DEPRIORITIZED AT PEAK",
     statusKind:"Typical fixed-wireless (5G) profile",
     stageLab:"Tower → air → your walls",
     load:["Loading a typical 5G home-internet cell…","Modeling tower load and phone priority…","Estimating peak-hour deprioritization…"],
     aria:"Diagram: a cell tower sends radio waves toward a house. Phone traffic is served first near the tower; many home-internet packets stall at the house walls at peak.",
-  },
-};
+  });
+}
+refreshFW();
 let comp = "spectrum";
 try {
   const q = (new URLSearchParams(location.search).get("comp")||"").toLowerCase();
-  if (COMPS[q]) comp = q;
+  if (q==="fw" || q==="wireless" || q==="tmobile") comp = "fw";
 } catch(e){}
 
 const PEAK = () => COMPS[comp].peak;
@@ -646,7 +674,7 @@ function renderState(){
     $("#statusIcon").innerHTML = ICON_OK;
     $("#statusTitle").textContent = "ZERO CONGESTION (DEDICATED LINE)";
     $("#statusSub").innerHTML =
-      `<span class="pdot" style="background:var(--bs)"></span>Brightspeed Fiber · 100% FTTH · any hour · demo for `;
+      `<span class="pdot" style="background:var(--bs)"></span>${SELL().name} · 100% FTTH · any hour · demo for `;
     $("#statusSub").append(document.createTextNode(addr));
     $("#stageLab").textContent = "Five dedicated lines — no sharing";
     cv.setAttribute("aria-label","Diagram: five separate fiber lines, one per home, all flowing smoothly with no shared segment.");
@@ -655,14 +683,20 @@ function renderState(){
   wireChips();
 }
 
-/* ============ competitor selector ============ */
+/* ============ competitor selector + selling brand ============ */
+function syncUrl(){
+  try{
+    history.replaceState(null,"",
+      location.pathname + `?brand=${sellKey}&comp=${comp==="fw"?"wireless":"spectrum"}`);
+  }catch(e){}
+}
 function setComp(c){
   comp = c;
   $("#segSpectrum").setAttribute("aria-pressed", String(c==="spectrum"));
-  $("#segTmo").setAttribute("aria-pressed", String(c==="tmobile"));
+  $("#segTmo").setAttribute("aria-pressed", String(c==="fw"));
   document.body.classList.toggle("comp-spectrum", c==="spectrum" && !good);
-  document.body.classList.toggle("comp-tmobile", c==="tmobile" && !good);
-  try{ history.replaceState(null,"",location.pathname+"?comp="+c); }catch(e){}
+  document.body.classList.toggle("comp-fw", c==="fw" && !good);
+  syncUrl();
   if (scanned){
     if (good) $("#fixLabel").textContent = "Back to the " + (COMPS[c].short || COMPS[c].name) + " view";
     renderState();
@@ -670,7 +704,33 @@ function setComp(c){
   }
 }
 $("#segSpectrum").addEventListener("click", ()=>setComp("spectrum"));
-$("#segTmo").addEventListener("click", ()=>setComp("tmobile"));
+$("#segTmo").addEventListener("click", ()=>setComp("fw"));
+
+function applySell(){
+  const S = SELL();
+  document.documentElement.style.setProperty("--bs", S.chrome);
+  document.documentElement.style.setProperty("--bs-ink", S.ink);
+  document.documentElement.style.setProperty("--glow-good", S.glow);
+  refreshFW();
+  const fb = fwBase();
+  document.documentElement.style.setProperty("--fw-glow",
+    fb.color==="#8B5CF6" ? "rgba(139,92,246,.13)" : "rgba(226,0,116,.13)");
+  $("#sellName").textContent = S.name;
+  $("#sellBs").setAttribute("aria-pressed", String(sellKey==="brightspeed"));
+  $("#sellTmo").setAttribute("aria-pressed", String(sellKey==="tmobile"));
+  $("#segTmoDot").style.background = fb.color;
+  $("#segTmoName").textContent = fb.short;
+  $("#bsCta").href = S.url;
+  $("#bsCtaText").textContent = `See if ${S.name} is at your address →`;
+  $("#fixLabel").textContent = good
+    ? "Back to the " + (COMPS[comp].short || COMPS[comp].name) + " view"
+    : `Simulate ${S.name} Grid`;
+  try{ localStorage.setItem("fiberBrand", sellKey); }catch(e){}
+  syncUrl();
+  if (scanned){ renderState(); buildLayout(); }
+}
+$("#sellBs").addEventListener("click", ()=>{ if (sellKey!=="brightspeed"){ sellKey="brightspeed"; applySell(); }});
+$("#sellTmo").addEventListener("click", ()=>{ if (sellKey!=="tmobile"){ sellKey="tmobile"; applySell(); }});
 
 /* ============ diagnostic flow ============ */
 function runDiagnostic(){
@@ -692,7 +752,7 @@ function runDiagnostic(){
     setComp(comp);
     $("#fixBtn").disabled = false;
     $("#fixBtn").setAttribute("aria-pressed","false");
-    $("#fixLabel").textContent = "Simulate Brightspeed Fiber Grid";
+    $("#fixLabel").textContent = `Simulate ${SELL().name} Grid`;
     $("#results").classList.add("show");
     renderState();
     buildLayout();
@@ -709,15 +769,18 @@ $("#fixBtn").addEventListener("click", ()=>{
   target = good ? 1 : 0;
   document.body.classList.toggle("good", good);
   document.body.classList.toggle("comp-spectrum", !good && comp==="spectrum");
-  document.body.classList.toggle("comp-tmobile", !good && comp==="tmobile");
+  document.body.classList.toggle("comp-fw", !good && comp==="fw");
   $("#fixBtn").setAttribute("aria-pressed", String(good));
   $("#fixLabel").textContent = good
     ? "Back to the " + (COMPS[comp].short || COMPS[comp].name) + " view"
-    : "Simulate Brightspeed Fiber Grid";
+    : `Simulate ${SELL().name} Grid`;
   renderState();
   if (good || COMPS[comp].kind==="wireless") buildLayout();
   if (reduced){ mix = target; reseed(); }
 });
+
+setComp(comp);        // reflect ?comp= deep links in the selector
+applySell();          // paint the selling brand (chrome, labels, links) on load
 
 /* offline: cache the whole demo site once loaded */
 if ("serviceWorker" in navigator && location.protocol.startsWith("http"))

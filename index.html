@@ -254,6 +254,14 @@
     display:inline-block;margin-top:12px;font-size:12.5px;font-weight:700;color:var(--ink-2);
     border:1px solid var(--hairline);border-radius:999px;padding:8px 14px;text-decoration:none;min-height:36px;
   }
+  .sell-seg{display:flex;gap:8px;margin-top:10px}
+  .sell-seg button{
+    flex:1;min-height:48px;border-radius:12px;font-size:14px;font-weight:700;
+    background:var(--surface-2);border:1px solid var(--hairline);color:var(--ink-2);
+    display:flex;align-items:center;justify-content:center;gap:7px;
+  }
+  .sell-seg button[aria-pressed="true"]{background:var(--ink);color:#0b0d11;border-color:var(--ink)}
+  .sell-seg .pdot{width:9px;height:9px;border-radius:50%;flex:none}
   .nbhd-card{display:block;text-decoration:none}
   .nbhd-card .go{
     display:inline-block;font-size:13.5px;font-weight:700;color:var(--ink);
@@ -626,6 +634,15 @@
     <span class="tag">🎤 SAY THIS</span>
     <p><b>Close, low pressure:</b> “Two options — we check your address right now, takes 30 seconds… or I text you this page and you look tonight. Which is easier?”</p>
   </div>
+
+  <section class="card" style="margin-top:26px">
+    <h2 style="font-size:17px;font-weight:700;margin-bottom:2px">Who are you selling?</h2>
+    <p class="hint" style="margin-bottom:4px">Rebrands every page — names, colors, race lanes, and the address-check link.</p>
+    <div class="sell-seg" role="group" aria-label="Fiber brand you are selling">
+      <button id="sellBs" aria-pressed="true"><span class="pdot" style="background:#ffc800"></span>Brightspeed</button>
+      <button id="sellTmo" aria-pressed="false"><span class="pdot" style="background:#e20074"></span>T-Mobile</button>
+    </div>
+  </section>
 
   <footer>
     <p><b style="color:var(--ink-2)">About this page.</b> A door-to-door demo aid built by the fiber sales side. It is not an official property, offer, or quote of any provider shown.</p>
@@ -1389,6 +1406,18 @@ function lineChart(host, opts){
 
 /* ===================== reveal the rest ===================== */
 document.querySelectorAll(".reveal").forEach(elm=>{ if (!inits.has(elm)) onVisible(elm); });
+
+/* selling-brand input — a reload re-brands the whole page consistently */
+{
+  $("#sellBs").setAttribute("aria-pressed", String(BRAND.key==="brightspeed"));
+  $("#sellTmo").setAttribute("aria-pressed", String(BRAND.key==="tmobile"));
+  const go = k => {
+    try{ localStorage.setItem("fiberBrand", k); }catch(e){}
+    location.href = location.pathname + "?brand=" + k;
+  };
+  $("#sellBs").addEventListener("click", ()=>{ if (BRAND.key!=="brightspeed") go("brightspeed"); });
+  $("#sellTmo").addEventListener("click", ()=>{ if (BRAND.key!=="tmobile") go("tmobile"); });
+}
 
 /* offline: cache the whole demo site once loaded */
 if ("serviceWorker" in navigator && location.protocol.startsWith("http"))
