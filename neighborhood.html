@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F172A">
+<meta name="description" content="Neighborhood Fiber vs. Cable Grid Simulator — tap your neighbors' houses, slide to 7 PM, and watch the shared cable pipe jam while the fiber highway stays full speed.">
+<meta property="og:title" content="Neighborhood Grid Simulator">
+<meta property="og:description" content="Your street at 7 PM: the shared cable pipe vs the dedicated fiber highway. Tap the neighbors and see who really controls your internet speed.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230F172A'/><circle cx='22' cy='32' r='9' fill='%2322C55E'/><circle cx='42' cy='32' r='9' fill='%23EF4444'/></svg>">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fiber vs Cable">
+<title>Neighborhood Grid Simulator</title>
+<style>
+  /* Built for ages 46–75+: 18px+ body, 20px+ bold controls, ≥54px touch targets,
+     AAA-contrast ink on deep slate. Green/red are STATUS colors (flowing/jammed)
+     and never appear without a word or icon; moving fiber pulses are cyan, which
+     stays separable from red under red-green colorblindness (validated). */
+  :root{
+    --bg:#0F172A;
+    --surface:#16203A;
+    --surface-2:#1E2A47;
+    --ink:#F1F5F9;
+    --ink-2:#C7D2E2;
+    --muted:#A9B7C9;
+    --hairline:rgba(255,255,255,.12);
+    --good:#22C55E;
+    --warn:#F59E0B;
+    --bad:#EF4444;
+    --pulse:#22D3EE;
+    --road:#151E30;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font:18px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:calc(10px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+  }
+  a{color:inherit}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  :focus-visible{outline:3px solid var(--pulse);outline-offset:2px;border-radius:10px}
+  .col{max-width:640px;margin:0 auto}
+
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .round{
+    width:54px;height:54px;border-radius:50%;display:grid;place-items:center;
+    background:var(--surface);border:1px solid var(--hairline);font-size:20px;text-decoration:none;
+  }
+  .round:active{transform:translateY(1px)}
+  .eyebrow{font-size:14px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  h1{font-size:clamp(28px,7vw,36px);line-height:1.12;letter-spacing:-.015em;font-weight:800;margin-bottom:8px}
+  .sub{color:var(--ink-2);font-size:18px;margin-bottom:16px;max-width:46ch}
+
+  /* mode toggle — the two pipes */
+  .mode{display:flex;gap:10px;margin-bottom:14px}
+  .mode button{
+    flex:1;min-height:60px;border-radius:16px;padding:10px 12px;
+    font-size:20px;font-weight:800;line-height:1.2;
+    background:var(--surface);border:2px solid var(--hairline);color:var(--ink-2);
+  }
+  .mode button:active{transform:translateY(1px)}
+  .mode button[aria-pressed="true"].cable{border-color:var(--bad);color:var(--ink);background:#2A1A26}
+  .mode button[aria-pressed="true"].fiber{border-color:var(--good);color:var(--ink);background:#132B22}
+
+  /* the street */
+  .card{
+    background:var(--surface);border:1px solid var(--hairline);border-radius:20px;
+    padding:18px 16px;margin-bottom:16px;
+  }
+  .card h2{font-size:22px;font-weight:800;margin-bottom:4px}
+  .card .hint{font-size:16px;color:var(--muted);margin-bottom:12px}
+  .stage{position:relative;height:378px;border-radius:16px;background:#0B1222;border:1px solid var(--hairline);overflow:hidden}
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%}
+  .house{
+    position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    width:76px;min-height:64px;border-radius:14px;padding:6px 3px;
+    background:#1B2740;border:2px solid rgba(255,255,255,.22);
+    font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--ink-2);
+  }
+  .house.you{width:88px}
+  .house .glyph{font-size:24px;line-height:1}
+  .house .badge{
+    position:absolute;top:-10px;right:-6px;font-size:18px;display:none;
+    filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));
+  }
+  .house.on .badge{display:block}
+  .house.on{border-color:var(--warn);color:var(--ink)}
+  .house.you{background:#101B33;border-color:var(--ink);color:var(--ink);box-shadow:0 0 0 3px rgba(241,245,249,.15)}
+  .house.you .glyph{font-size:28px}
+  .cab{
+    position:absolute;display:grid;place-items:center;text-align:center;
+    background:#232F4E;border:2px solid rgba(154,188,255,.5);border-radius:12px;
+    font-size:12.5px;font-weight:800;color:var(--ink);line-height:1.15;padding:4px;
+  }
+  .flag{
+    position:absolute;left:50%;transform:translateX(-50%);
+    display:none;align-items:center;gap:8px;white-space:nowrap;
+    background:#0B1222;border:2px solid var(--bad);border-radius:999px;
+    padding:8px 16px;font-size:17px;font-weight:800;color:var(--ink);
+    box-shadow:0 8px 24px rgba(0,0,0,.5);
+  }
+  .flag.good{border-color:var(--good)}
+  .flag.show{display:flex}
+
+  /* gauge */
+  .gauge-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .gauge-num{font-size:64px;font-weight:800;letter-spacing:-.02em;line-height:1}
+  .gauge-num small{font-size:26px;font-weight:800;color:var(--ink-2)}
+  .gauge-status{font-size:20px;font-weight:800}
+  .gauge-status.bad{color:var(--bad)} .gauge-status.warn{color:var(--warn)} .gauge-status.good{color:var(--good)}
+  .meter{height:20px;border-radius:10px;background:var(--surface-2);overflow:hidden;margin:12px 0 8px}
+  .meter .fill{height:100%;border-radius:10px;width:100%;transition:width .5s ease,background-color .5s ease}
+  .gauge-sub{font-size:16px;color:var(--muted)}
+  .gauge-sub b{color:var(--ink-2)}
+
+  /* slider */
+  .slider-label{font-size:22px;font-weight:800;margin-bottom:10px}
+  .slider-label small{display:block;font-size:16px;font-weight:600;color:var(--muted);margin-top:2px}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:54px;background:transparent;margin:0;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:16px;border-radius:8px;background:linear-gradient(90deg,#2C3E63,#1E2A47 55%,#141C33)}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:44px;height:44px;border-radius:50%;margin-top:-14px;
+    background:var(--ink);border:4px solid #0F172A;box-shadow:0 0 0 2px var(--ink),0 4px 12px rgba(0,0,0,.5);
+  }
+  input[type=range]::-moz-range-track{height:16px;border-radius:8px;background:linear-gradient(90deg,#2C3E63,#1E2A47 55%,#141C33)}
+  input[type=range]::-moz-range-thumb{
+    width:38px;height:38px;border-radius:50%;background:var(--ink);border:4px solid #0F172A;
+    box-shadow:0 0 0 2px var(--ink),0 4px 12px rgba(0,0,0,.5);
+  }
+  .ticks{display:flex;justify-content:space-between;font-size:16px;color:var(--muted);font-weight:700;margin-top:4px}
+  .ticks span{text-align:center}
+  .ticks .em{font-size:20px;display:block}
+
+  /* big action buttons */
+  .bigbtn{
+    width:100%;min-height:58px;border-radius:16px;margin-top:12px;
+    font-size:20px;font-weight:800;padding:12px 16px;
+    background:var(--surface-2);border:2px solid var(--hairline);color:var(--ink);
+  }
+  .bigbtn:active{transform:translateY(1px)}
+  .bigbtn[aria-pressed="true"]{border-color:var(--warn);background:#33240F}
+
+  /* calculator */
+  .chips{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
+  .chip{
+    flex:1;min-width:72px;min-height:56px;border-radius:14px;
+    font-size:21px;font-weight:800;
+    background:var(--surface-2);border:2px solid var(--hairline);color:var(--ink-2);
+  }
+  .chip[aria-pressed="true"]{background:var(--ink);color:#0F172A;border-color:var(--ink)}
+  .calc-out{
+    background:#0B1222;border:1px solid var(--hairline);border-radius:16px;
+    padding:16px;text-align:center;
+  }
+  .calc-big{font-size:clamp(30px,8vw,40px);font-weight:800;letter-spacing:-.01em;line-height:1.2}
+  .calc-big .lose{color:var(--bad)}
+  .calc-big .keep{color:var(--good)}
+  .calc-sub{font-size:17px;color:var(--ink-2);margin-top:8px}
+  .calc-note{font-size:14px;color:var(--muted);margin-top:10px}
+
+  .linkrow{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+  .linkbtn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    min-height:58px;border-radius:16px;text-decoration:none;text-align:center;
+    font-size:20px;font-weight:800;padding:12px 16px;
+    background:var(--surface);border:2px solid var(--hairline);
+  }
+  footer{margin-top:18px}
+  footer p{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:8px}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="col">
+
+  <div class="top">
+    <a class="round" href="index.html" aria-label="Back to the main demo">✕</a>
+    <a class="round" href="capacity.html" aria-label="Open the capacity lab" title="Capacity lab">📶</a>
+  </div>
+
+  <p class="eyebrow" id="eyebrow">Brightspeed Fiber vs shared cable</p>
+  <h1>Neighborhood Grid Simulator</h1>
+  <p class="sub">This is your street. One cable pipe is <b>shared by everyone</b>. A fiber line is <b>yours alone</b>. Slide to 7 PM and see the difference.</p>
+
+  <div class="mode" role="group" aria-label="Choose a connection to simulate">
+    <button class="cable" id="modeCable" aria-pressed="true">🔴 Shared<br>Cable Pipe</button>
+    <button class="fiber" id="modeFiber" aria-pressed="false">🟢 Dedicated<br>Fiber Highway</button>
+  </div>
+
+  <section class="card">
+    <h2 id="mapTitle">Your street, 7:00 PM</h2>
+    <p class="hint">Tap any neighbor's house to start or stop their streaming.</p>
+    <div class="stage" id="stage">
+      <canvas id="cv" role="img"></canvas>
+      <div class="flag" id="flag">🚧 Evening Bottleneck</div>
+    </div>
+  </section>
+
+  <section class="card" aria-live="polite">
+    <h2>Speed reaching <u>your home</u></h2>
+    <div class="gauge-top">
+      <div class="gauge-num"><span id="gaugePct">30</span><small>%</small></div>
+      <div class="gauge-status bad" id="gaugeStatus">🚧 Evening Bottleneck</div>
+    </div>
+    <div class="meter"><div class="fill" id="gaugeFill" style="background:var(--bad)"></div></div>
+    <p class="gauge-sub" id="gaugeSub"></p>
+  </section>
+
+  <section class="card">
+    <p class="slider-label" id="timeLabel">7:00 PM <small>Dinnertime — TVs, tablets and games all on</small></p>
+    <input type="range" id="slider" min="12" max="22" step="1" value="19"
+      aria-label="Time of day, noon to 10 PM" aria-valuetext="7 PM">
+    <div class="ticks" aria-hidden="true">
+      <span><span class="em">☀️</span>12 PM</span>
+      <span><span class="em">🏫</span>5 PM</span>
+      <span><span class="em">📺</span>7 PM</span>
+      <span><span class="em">🌙</span>10 PM</span>
+    </div>
+    <button class="bigbtn" id="neighborsBtn" aria-pressed="false">📺 Make all the neighbors stream 4K + game</button>
+  </section>
+
+  <section class="card">
+    <h2>What that costs you</h2>
+    <p class="hint">Your monthly internet bill:</p>
+    <div class="chips" id="bills" role="group" aria-label="Pick your monthly bill"></div>
+    <div class="calc-out" aria-live="polite">
+      <p class="calc-big" id="calcBig"></p>
+      <p class="calc-sub" id="calcSub"></p>
+      <p class="calc-note">Illustrative estimate: your bill × the share of advertised speed delivered in this simulation. Every street and plan is different.</p>
+    </div>
+  </section>
+
+  <div class="linkrow">
+    <a class="linkbtn" href="index.html">See the full side-by-side demo →</a>
+  </div>
+
+  <footer>
+    <p>Illustrative simulation of how a shared cable line and a dedicated fiber line behave; it is not a measurement of any specific address, and it is not an official page of any provider. Provider names are trademarks of their respective owners.</p>
+  </footer>
+</div>
+
+<script>
+/* ================= brand (name only — page colors are status semantics) ================= */
+const NB_BRANDS = { brightspeed:"Brightspeed Fiber", tmobile:"T-Mobile Fiber" };
+let brandName = "Brightspeed Fiber";
+try {
+  const q = new URLSearchParams(location.search).get("brand");
+  const k = (q || localStorage.getItem("fiberBrand") || "brightspeed").toLowerCase();
+  if (NB_BRANDS[k]){ brandName = NB_BRANDS[k]; localStorage.setItem("fiberBrand", k); }
+} catch(e){}
+document.getElementById("eyebrow").textContent = brandName + " vs shared cable";
+
+/* ================= state ================= */
+const $ = s => document.querySelector(s);
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+const N_NEIGHBORS = 5;
+let mode = "cable";                 // "cable" | "fiber"
+let hour = 19;                      // 12..22
+let on = [];                        // neighbor streaming state
+let forcedAll = false;
+let bill = 120;
+
+const AUTO = {12:0,13:0,14:1,15:1,16:1,17:2,18:4,19:5,20:5,21:4,22:3};
+const ORDER = [0,3,1,4,2];          // activation order, spread across the street
+function applyAuto(){
+  const n = AUTO[hour] ?? 0;
+  on = Array(N_NEIGHBORS).fill(false);
+  for (let i=0;i<n;i++) on[ORDER[i]] = true;
+  forcedAll = false;
+  $("#neighborsBtn").setAttribute("aria-pressed","false");
+}
+applyAuto();
+
+const countOn = () => on.filter(Boolean).length;
+function deliveredCable(){
+  const n = countOn();
+  return Math.max(.25, 1 - .13*n - (n>=4 ? .05 : 0));
+}
+const delivered = () => mode==="fiber" ? 1 : deliveredCable();
+
+function hourLabel(h){
+  const hh = h>12 ? h-12 : h;
+  return hh + ":00 " + (h>=12 ? "PM" : "AM");
+}
+const HOUR_SUB = {
+  12:"Quiet midday — the street is mostly empty",
+  13:"Quiet early afternoon", 14:"Early afternoon", 15:"School's out",
+  16:"Homework and YouTube begin", 17:"Neighbors start coming home",
+  18:"Dinner is cooking, screens turn on",
+  19:"Dinnertime — TVs, tablets and games all on",
+  20:"Prime time — the whole street is streaming",
+  21:"Late shows and downloads", 22:"Winding down",
+};
+
+/* ================= street scene ================= */
+const stage = $("#stage"), cv = $("#cv"), ctx = cv.getContext("2d");
+const HOUSES = [
+  {x:.27,row:0},{x:.53,row:0},{x:.79,row:0},   // top of the street
+  {x:.27,row:1},{x:.53,row:1},                 // bottom
+  {x:.79,row:1,you:true},                      // YOUR HOME — end of the line
+];
+let W=0,H=0, cabinet=null, anchors=[], cablePaths=[], fiberPaths=[], houseEls=[];
+let particles=[], accD=0, accU=0;
+
+function quad(a,c,b,N=24){
+  const o=[]; for(let i=0;i<=N;i++){const t=i/N,u=1-t;
+    o.push({x:u*u*a.x+2*u*t*c.x+t*t*b.x, y:u*u*a.y+2*u*t*c.y+t*t*b.y});}
+  return o;
+}
+function mkPath(pts){
+  const cum=[0];
+  for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+  return {pts,cum,len:cum[cum.length-1]};
+}
+function pointAt(P,s){
+  s=Math.max(0,Math.min(P.len,s));
+  let i=1; while(P.cum[i]<s) i++;
+  const t=(s-P.cum[i-1])/((P.cum[i]-P.cum[i-1])||1);
+  return {x:lerp(P.pts[i-1].x,P.pts[i].x,t), y:lerp(P.pts[i-1].y,P.pts[i].y,t)};
+}
+
+function buildLayout(){
+  W = stage.clientWidth; H = stage.clientHeight;
+  const dpr = Math.min(2.5, window.devicePixelRatio||1);
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  houseEls.forEach(el=>el.remove());
+  stage.querySelectorAll(".cab").forEach(el=>el.remove());
+  houseEls = []; anchors = []; cablePaths = []; fiberPaths = [];
+
+  const cy = H/2;
+  const cab = document.createElement("div");
+  cab.className = "cab"; cab.textContent = "Street\nbox";
+  cab.style.cssText = `left:8px;top:${cy-26}px;width:58px;height:52px;white-space:pre-line`;
+  stage.append(cab);
+  cabinet = {x:70, y:cy};
+
+  HOUSES.forEach((h,i)=>{
+    const hw = h.you ? 88 : 76, hh = 66;
+    const hx = Math.round(W*h.x);
+    const top = h.row===0 ? 20 : H-20-hh;
+    const el = document.createElement(h.you ? "div" : "button");
+    el.className = "house"+(h.you?" you":"");
+    el.style.cssText = `left:${hx-hw/2}px;top:${top}px`;
+    el.innerHTML = `<span class="badge" aria-hidden="true">📺</span><span class="glyph" aria-hidden="true">${h.you?"🏡":"🏠"}</span>${h.you?"YOUR HOME":"Neighbor"}`;
+    if (!h.you){
+      // HOUSES lists the 5 neighbors first (0–4), so `i` is the index into `on`
+      el.setAttribute("aria-pressed", String(on[i]));
+      el.addEventListener("click", ()=>{ on[i] = !on[i]; update(); });
+      el.dataset.n = i;
+    }
+    stage.append(el); houseEls.push(el);
+    const anchor = {x:hx, y: h.row===0 ? 20+hh : H-20-hh};
+    anchors.push(anchor);
+
+    // shared cable pipe: along the road, then a drop up/down to the house
+    const drop = [{x:cabinet.x,y:cy},{x:hx,y:cy},{x:hx,y:anchor.y}];
+    const P = mkPath(drop); P.trunkLen = hx-cabinet.x; P.house = i;
+    cablePaths.push(P);
+
+    // dedicated fiber highway: its own beam, arcing over/under the road
+    const arc = h.row===0 ? -1 : 1;
+    const cpy = cy + arc*(46 + 16*(h.x));
+    fiberPaths.push(Object.assign(mkPath(quad(cabinet,{x:lerp(cabinet.x,hx,.5),y:cpy},{x:hx,y:anchor.y})),{house:i}));
+  });
+  reseed();
+}
+
+/* particle engine — trunk speed follows congestion; jammed dots stutter */
+function speeds(){
+  const k = (W-140)/300;
+  const d = deliveredCable();
+  return { fiber:125*k, trunk:Math.max(26*k,130*k*d), branch:120*k, up:45*k };
+}
+function spawnRates(){
+  if (mode==="fiber") return { down:1.15*HOUSES.length, up:.55*HOUSES.length };
+  return { down:3 + 1.7*countOn(), up:.5 };
+}
+function activePathWeighted(paths){
+  // streams flow mostly to houses that are ON (plus your home, always watching)
+  const pool = [];
+  paths.forEach(P=>{
+    const h = HOUSES[P.house];
+    const w = h.you ? 3 : (on[P.house]??false) ? 3 : 1;
+    for(let i=0;i<w;i++) pool.push(P);
+  });
+  return pool[(Math.random()*pool.length)|0];
+}
+function spawnOne(dir){
+  if (particles.length>170) return;
+  const paths = mode==="fiber" ? fiberPaths : cablePaths;
+  const path = activePathWeighted(paths);
+  const j = (Math.random()*2-1)*3.4;
+  const seed = Math.random()*7;
+  particles.push({path, dir, j, seed, s: dir>0?0:path.len});
+}
+function step(dt){
+  const r = spawnRates();
+  accD += r.down*dt; accU += r.up*dt;
+  while (accD>=1){ accD--; spawnOne(+1); }
+  while (accU>=1){ accU--; spawnOne(-1); }
+  const sp = speeds();
+  const jam = mode==="cable" ? Math.min(1, Math.max(0,(1-deliveredCable()-.1)/.6)) : 0;
+  const keep=[];
+  for (const q of particles){
+    let v;
+    if (mode==="fiber") v = sp.fiber;                       // symmetric — same speed both ways
+    else if (q.dir<0) v = sp.up;                            // cable upstream crawls
+    else v = q.s < q.path.trunkLen ? sp.trunk : sp.branch;
+    if (jam>.45 && q.dir>0 && mode==="cable")               // visible stutter in the jam
+      v *= .55 + .45*Math.abs(Math.sin(q.s/22 + q.seed));
+    q.s += v*q.dir*dt;
+    if (q.dir>0 ? q.s<q.path.len : q.s>0) keep.push(q);
+  }
+  particles = keep;
+}
+function reseed(){
+  particles=[]; accD=.8; accU=.4;
+  for(let i=0;i<80;i++) step(.06);
+  draw();
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const cy = H/2;
+  // the road
+  ctx.fillStyle = "var(--road)"; ctx.fillStyle = "#151E30";
+  ctx.fillRect(0, cy-19, W, 38);
+  ctx.strokeStyle = "#33415A"; ctx.lineWidth = 2; ctx.setLineDash([12,10]);
+  ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(W,cy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.lineCap="round"; ctx.lineJoin="round";
+
+  if (mode==="cable"){
+    const jam = Math.min(1, Math.max(0,(1-deliveredCable()-.1)/.6));
+    // one shared pipe along the street + drops
+    if (jam>0){ // red congestion glow
+      ctx.strokeStyle = `rgba(239,68,68,${.12+.22*jam})`; ctx.lineWidth = 20;
+      ctx.beginPath(); ctx.moveTo(cabinet.x,cy); ctx.lineTo(W-24,cy); ctx.stroke();
+    }
+    ctx.strokeStyle = "#202B41"; ctx.lineWidth = 12;
+    ctx.beginPath(); ctx.moveTo(cabinet.x,cy); ctx.lineTo(W-24,cy); ctx.stroke();
+    ctx.lineWidth = 8;
+    for (const P of cablePaths){
+      ctx.beginPath(); ctx.moveTo(P.pts[1].x,P.pts[1].y); ctx.lineTo(P.pts[2].x,P.pts[2].y); ctx.stroke();
+    }
+  } else {
+    // independent light beams, one per home
+    for (const P of fiberPaths){
+      ctx.strokeStyle = "#1B2A3C"; ctx.lineWidth = 8;
+      ctx.beginPath(); P.pts.forEach((pt,i)=> i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y)); ctx.stroke();
+      ctx.strokeStyle = "rgba(34,197,94,.5)"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); P.pts.forEach((pt,i)=> i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y)); ctx.stroke();
+    }
+  }
+
+  // data dots
+  const jam = mode==="cable" ? Math.min(1, Math.max(0,(1-deliveredCable()-.1)/.6)) : 0;
+  for (const q of particles){
+    const pt = pointAt(q.path, q.s);
+    let y = pt.y;
+    if (mode==="cable" && q.s < q.path.trunkLen) y += q.j;
+    let col;
+    if (mode==="fiber") col = "#22D3EE";
+    else col = jam>0 ? `rgb(${Math.round(lerp(143,239,jam))},${Math.round(lerp(163,68,jam))},${Math.round(lerp(191,68,jam))})` : "#8FA3BF";
+    ctx.fillStyle = col;
+    ctx.globalAlpha=.22; ctx.beginPath(); ctx.arc(pt.x,y,7,0,7); ctx.fill();
+    ctx.globalAlpha=1;   ctx.beginPath(); ctx.arc(pt.x,y,4.2,0,7); ctx.fill();
+  }
+}
+
+/* ================= UI rendering ================= */
+function statusFor(d){
+  if (d>=.85) return {word:"✅ Full speed", cls:"good", color:"var(--good)"};
+  if (d>=.60) return {word:"⚠️ Slowing down", cls:"warn", color:"var(--warn)"};
+  return {word:"🚧 Evening Bottleneck", cls:"bad", color:"var(--bad)"};
+}
+function update(){
+  // houses
+  houseEls.forEach(el=>{
+    if (el.dataset.n !== undefined){
+      const i = +el.dataset.n;
+      el.classList.toggle("on", !!on[i]);
+      el.setAttribute("aria-pressed", String(!!on[i]));
+      el.setAttribute("aria-label", `Neighbor's house ${i+1}: ${on[i]?"streaming — tap to stop":"quiet — tap to start streaming"}`);
+    }
+  });
+
+  const d = delivered(), pct = Math.round(d*100);
+  const st = statusFor(d);
+
+  // map header + flag
+  $("#mapTitle").textContent = `Your street, ${hourLabel(hour)}`;
+  const flag = $("#flag");
+  if (mode==="cable" && d<.6){
+    flag.textContent = "🚧 Evening Bottleneck";
+    flag.classList.remove("good"); flag.classList.add("show");
+  } else if (mode==="fiber"){
+    flag.textContent = "✅ Full speed — no sharing";
+    flag.classList.add("good","show");
+  } else flag.classList.remove("show");
+  flag.style.top = (stage.clientHeight/2 + 26) + "px";   // a road sign, just under the road
+
+  // gauge
+  $("#gaugePct").textContent = pct;
+  const gs = $("#gaugeStatus");
+  gs.textContent = st.word; gs.className = "gauge-status "+st.cls;
+  const gf = $("#gaugeFill");
+  gf.style.width = pct+"%"; gf.style.background = st.color;
+  $("#gaugeSub").innerHTML = mode==="fiber"
+    ? `The <b>Dedicated Fiber Highway</b> is yours alone — <b>locked at 100%</b> no matter what the street is doing. (On the shared cable pipe right now: <b>${Math.round(deliveredCable()*100)}%</b>.)`
+    : `<b>${countOn()} of 5 neighbors</b> are streaming on your shared pipe. Fiber on this street would still read <b>100%</b>.`;
+
+  // time
+  $("#timeLabel").innerHTML = `${hourLabel(hour)} <small>${HOUR_SUB[hour]||""}</small>`;
+  $("#slider").setAttribute("aria-valuetext", hourLabel(hour));
+
+  // calculator
+  const worth = Math.round(bill*d);
+  const cableWorth = Math.round(bill*deliveredCable());
+  if (mode==="cable"){
+    const cls = worth < bill*.9 ? "lose" : "keep";
+    $("#calcBig").innerHTML = `<span class="${cls}">$${worth}</span> of $${bill}`;
+    $("#calcSub").innerHTML = worth < bill*.9
+      ? `At <b>${hourLabel(hour)}</b>, you'd pay for full speed but get about <b>${pct}%</b> of it — like paying $${bill} for <b>$${worth}</b> of internet.`
+      : `Right now the street is quiet, so the shared pipe delivers. The evening is when it gets crowded — slide to 7 PM.`;
+  } else {
+    $("#calcBig").innerHTML = `<span class="keep">$${bill}</span> of $${bill}`;
+    $("#calcSub").innerHTML = `Fiber delivers what you pay for — even at 7 PM. On the shared cable pipe right now, $${bill} would buy about <b>$${cableWorth}</b>.`;
+  }
+
+  // canvas aria
+  cv.setAttribute("aria-label",
+    mode==="cable"
+      ? `Street map, ${hourLabel(hour)}. One shared cable pipe serves six homes. ${countOn()} of five neighbors are streaming; your home is receiving about ${pct} percent of its advertised speed. ${d<.6?"The pipe is jammed — an evening bottleneck.":""}`
+      : `Street map, ${hourLabel(hour)}. Each home has its own fiber line. Your home receives one hundred percent of its speed regardless of the neighbors.`);
+
+  if (reduced) { reseed(); }   // static frame refresh
+  else draw();
+}
+
+/* ================= controls ================= */
+$("#modeCable").addEventListener("click", ()=>{ if(mode!=="cable"){ mode="cable"; setMode(); }});
+$("#modeFiber").addEventListener("click", ()=>{ if(mode!=="fiber"){ mode="fiber"; setMode(); }});
+function setMode(){
+  $("#modeCable").setAttribute("aria-pressed", String(mode==="cable"));
+  $("#modeFiber").setAttribute("aria-pressed", String(mode==="fiber"));
+  reseed(); update();
+}
+$("#slider").addEventListener("input", e=>{ hour = +e.target.value; applyAuto(); update(); });
+$("#neighborsBtn").addEventListener("click", ()=>{
+  forcedAll = !forcedAll;
+  if (forcedAll) on = Array(N_NEIGHBORS).fill(true);
+  else applyAuto();
+  $("#neighborsBtn").setAttribute("aria-pressed", String(forcedAll));
+  $("#neighborsBtn").textContent = forcedAll ? "📺 Neighbors are streaming — tap to calm the street" : "📺 Make all the neighbors stream 4K + game";
+  update();
+});
+{
+  const bills = [60,90,120,150];
+  const box = $("#bills");
+  bills.forEach(b=>{
+    const el = document.createElement("button");
+    el.className="chip"; el.textContent = "$"+b+(b===150?"+":"");
+    el.setAttribute("aria-pressed", String(b===bill));
+    el.addEventListener("click", ()=>{
+      bill = b;
+      box.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed","false"));
+      el.setAttribute("aria-pressed","true");
+      update();
+    });
+    box.append(el);
+  });
+}
+
+/* ================= loop ================= */
+let raf=0, last=0, running=false;
+function frame(now){
+  if (!running){ raf=0; return; }
+  const dt = Math.min(.05,(now-last)/1000)||.016; last=now;
+  step(dt); draw();
+  raf = requestAnimationFrame(frame);
+}
+function setRunning(onn){
+  onn = onn && !document.hidden && !reduced;
+  if (onn===running) return;
+  running = onn;
+  if (onn){ last=performance.now(); raf=requestAnimationFrame(frame); }
+}
+document.addEventListener("visibilitychange", ()=>setRunning(true));
+if ("ResizeObserver" in window)
+  new ResizeObserver(()=>{ if(stage.clientWidth!==W){ buildLayout(); update(); } }).observe(stage);
+
+buildLayout(); update(); setRunning(true);
+
+/* offline: cache the whole demo site once loaded */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http"))
+  addEventListener("load", ()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>

@@ -10,6 +10,8 @@ at the doorstep. The rep talks; the visual proves.
 |---|---|
 | `index.html` | The demo itself — one self-contained file, zero dependencies, works offline |
 | `capacity.html` | Standalone full-screen **Network Capacity Comparison** — the live topology simulator as its own app-style screen (linked from the demo's simulator card, ✕ returns to the demo) |
+| `neighborhood.html` | **Neighborhood Grid Simulator** — homeowner-facing street map built for ages 46–75+: big type, ≥54px touch targets, zero jargon. Tappable neighbor houses, a 12 PM–10 PM time slider, a "make all the neighbors stream" toggle, a live speed gauge, and a peak-hour value calculator ("$36 of $120") |
+| `manifest.json` + `sw.js` | PWA layer — after one online visit the whole site works offline and can be saved to a phone/iPad home screen |
 | `prompts/d2d-visual-master-prompt.md` | The master system prompt (SaaS conversion architecture adapted for d2d visuals) used to design this page — paste into Claude to generate variants for other markets/providers |
 | `vercel.json` | Zero-build static deploy config |
 
@@ -82,6 +84,19 @@ market; everything downstream (race clocks, charts, totals, table) recomputes.
 Open `index.html` directly in any browser, or deploy it (below) and save it to
 the rep's phone home screen — it ships a home-screen icon and app-style meta
 tags, and runs fully offline once loaded.
+
+## The neighborhood page
+
+`neighborhood.html` is the homeowner-facing section: an animated street where
+one **Shared Cable Pipe** serves six homes (yours is the highlighted one at the
+end of the line) versus a **Dedicated Fiber Highway** per home. Sliding the
+time-of-day past 5 PM wakes the neighbors' TVs, the pipe glows red, packets
+stutter and pile up, and the speed gauge drops — while fiber stays locked at
+100%. Green/red are used as status signals only and always carry a word or
+icon ("✅ Full speed" / "🚧 Evening Bottleneck"), and the fiber data pulses are
+cyan, which stays distinguishable from red under red-green color-blindness
+(validated: cyan↔red CVD ΔE 22.8). The value calculator turns the dip into
+dollars: pick the bill, see what peak hours actually deliver.
 
 ## Deploying on Vercel
 

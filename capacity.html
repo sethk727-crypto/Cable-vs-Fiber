@@ -10,6 +10,7 @@
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='22' cy='32' r='9' fill='%23ffc800'/><circle cx='42' cy='32' r='9' fill='%233987e5'/></svg>">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -499,6 +500,10 @@ if ("ResizeObserver" in window)
 
 render(true);
 setActive(true);
+
+/* offline: cache the whole demo site once loaded */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http"))
+  addEventListener("load", ()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 </script>
 </body>
 </html>

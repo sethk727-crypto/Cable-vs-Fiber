@@ -1,0 +1,11 @@
+{
+  "name": "Fiber vs Cable — Doorstep Demo",
+  "short_name": "Fiber vs Cable",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0c10",
+  "theme_color": "#0a0c10",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
