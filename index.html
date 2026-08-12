@@ -10,6 +10,7 @@
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='22' cy='32' r='9' fill='%23ffc800'/><circle cx='42' cy='32' r='9' fill='%233987e5'/></svg>">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -253,6 +254,12 @@
     display:inline-block;margin-top:12px;font-size:12.5px;font-weight:700;color:var(--ink-2);
     border:1px solid var(--hairline);border-radius:999px;padding:8px 14px;text-decoration:none;min-height:36px;
   }
+  .nbhd-card{display:block;text-decoration:none}
+  .nbhd-card .go{
+    display:inline-block;font-size:13.5px;font-weight:700;color:var(--ink);
+    border:1px solid var(--hairline);border-radius:999px;padding:9px 16px;background:var(--surface-2);
+  }
+  .nbhd-card:active{transform:translateY(1px)}
 
   /* scenarios */
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
@@ -532,6 +539,12 @@
       <p class="note"><b>Fiber</b> is a star: your own strand of glass, hub to home — light both ways, so upstream dots move as fast as downstream. <b>Cable</b> is a bus: one copper trunk the street shares, split at a node — and its upstream dots crawl. Illustrative simulation; congestion varies by node, and latency figures are scenario examples.</p>
       <a class="open-full" href="capacity.html">Open full-screen simulator ⤢</a>
     </section>
+
+    <a class="card span2 reveal nbhd-card" href="neighborhood.html">
+      <h2>🏘️ Try the Neighborhood Grid Simulator</h2>
+      <p class="hint" style="margin-bottom:8px">Built for homeowners: tap the neighbors' houses, slide to 7 PM, and watch the shared cable pipe jam — then flip to the fiber highway. Big type, big buttons, zero jargon.</p>
+      <span class="go">Open the simulator →</span>
+    </a>
 
     <section class="card span2 reveal" id="priceCard" aria-label="Price over 24 months chart">
       <h2>The 24-month bill</h2>
@@ -1365,6 +1378,10 @@ function lineChart(host, opts){
 
 /* ===================== reveal the rest ===================== */
 document.querySelectorAll(".reveal").forEach(elm=>{ if (!inits.has(elm)) onVisible(elm); });
+
+/* offline: cache the whole demo site once loaded */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http"))
+  addEventListener("load", ()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 </script>
 </body>
 </html>
