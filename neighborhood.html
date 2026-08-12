@@ -241,6 +241,15 @@
     </div>
   </section>
 
+  <section class="card">
+    <h2>Who are you selling?</h2>
+    <p class="hint">Rebrands every page of this demo — names, colors, and links.</p>
+    <div class="chips" role="group" aria-label="Fiber brand you are selling">
+      <button class="chip" id="sellBs" aria-pressed="true">Brightspeed</button>
+      <button class="chip" id="sellTmo" aria-pressed="false">T-Mobile</button>
+    </div>
+  </section>
+
   <div class="linkrow">
     <a class="linkbtn" href="index.html">See the full side-by-side demo →</a>
   </div>
@@ -604,6 +613,19 @@ if ("ResizeObserver" in window)
   new ResizeObserver(()=>{ if(stage.clientWidth!==W){ buildLayout(); update(); } }).observe(stage);
 
 buildLayout(); update(); setRunning(true);
+
+/* selling-brand input — applies across every page via localStorage */
+function setSell(k){
+  try{ localStorage.setItem("fiberBrand", k); }catch(e){}
+  brandName = NB_BRANDS[k];
+  document.getElementById("eyebrow").textContent = brandName + " vs shared cable";
+  $("#sellBs").setAttribute("aria-pressed", String(k==="brightspeed"));
+  $("#sellTmo").setAttribute("aria-pressed", String(k==="tmobile"));
+  try{ history.replaceState(null,"",location.pathname+"?brand="+k); }catch(e){}
+}
+$("#sellBs").addEventListener("click", ()=>setSell("brightspeed"));
+$("#sellTmo").addEventListener("click", ()=>setSell("tmobile"));
+setSell(brandName===NB_BRANDS.tmobile ? "tmobile" : "brightspeed");
 
 /* offline: cache the whole demo site once loaded */
 if ("serviceWorker" in navigator && location.protocol.startsWith("http"))
