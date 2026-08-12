@@ -11,6 +11,7 @@ at the doorstep. The rep talks; the visual proves.
 | `index.html` | The demo itself — one self-contained file, zero dependencies, works offline |
 | `capacity.html` | Standalone full-screen **Network Capacity Comparison** — the live topology simulator as its own app-style screen (linked from the demo's simulator card, ✕ returns to the demo) |
 | `neighborhood.html` | **Neighborhood Grid Simulator** — homeowner-facing street map built for ages 46–75+: big type, ≥54px touch targets, zero jargon. Tappable neighbor houses, a 12 PM–10 PM time slider, a "make all the neighbors stream" toggle, a live speed gauge, and a peak-hour value calculator ("$36 of $120") |
+| `diagnostic.html` | **Infrastructure Node Diagnostic** — an iOS-styled, tech-tool-feel *simulation* (persistently badged as such): search bar + authority-cadence loading, hazard dashboard of a typical shared node (pulsing red trunk split, ≈47 devices typical, 4% upload ratio, 28% peak delivery, $-waste calculator), and a big iOS switch that transitions the whole UI to the dedicated-fiber state |
 | `manifest.json` + `sw.js` | PWA layer — after one online visit the whole site works offline and can be saved to a phone/iPad home screen |
 | `prompts/d2d-visual-master-prompt.md` | The master system prompt (SaaS conversion architecture adapted for d2d visuals) used to design this page — paste into Claude to generate variants for other markets/providers |
 | `vercel.json` | Zero-build static deploy config |

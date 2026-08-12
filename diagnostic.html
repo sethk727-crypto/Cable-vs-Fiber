@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050608">
+<meta name="description" content="Infrastructure Node Diagnostic — a simulation of a typical shared cable node at peak hours, and what a dedicated fiber line changes.">
+<meta property="og:title" content="Node Diagnostic — simulation">
+<meta property="og:description" content="Run the simulated diagnostic on a typical shared copper node, then flip the switch to a dedicated fiber grid.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23050608'/><path d='M20 40 L32 20 L44 40 Z' fill='none' stroke='%23EF4444' stroke-width='5' stroke-linejoin='round'/></svg>">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Node Diagnostic">
+<title>Node Diagnostic — simulation</title>
+<style>
+  /* iOS-native feel: system font, blur, deep rounding. Red/green are STATUS
+     semantics (hazard/clear) and never appear without a word or icon; moving
+     data pulses in the fiber state are cyan (validated separable from red
+     under red-green color-blindness). */
+  :root{
+    --bg:#050608;
+    --card:rgba(22,27,38,.72);
+    --card-solid:#161B26;
+    --ink:#F4F6FA;
+    --ink-2:#C3CAD6;
+    --muted:#959DAC;
+    --hairline:rgba(255,255,255,.10);
+    --bad:#EF4444;
+    --bad-dim:rgba(239,68,68,.16);
+    --warn:#F59E0B;
+    --good:#22C55E;
+    --good-dim:rgba(34,197,94,.14);
+    --pulse:#22D3EE;
+    --accent:#0A84FF;           /* iOS blue for the neutral action */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(420px 300px at 85% -5%, var(--glow-a, rgba(239,68,68,.10)), transparent 70%),
+      radial-gradient(420px 300px at 0% 30%, var(--glow-b, rgba(245,158,11,.06)), transparent 70%),
+      var(--bg);
+    color:var(--ink);
+    font:17px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100dvh;
+    padding:calc(10px + env(safe-area-inset-top)) 16px calc(120px + env(safe-area-inset-bottom));
+    transition:background .7s ease;
+  }
+  body.good{ --glow-a:rgba(34,197,94,.10); --glow-b:rgba(34,211,238,.07); }
+  a{color:inherit}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:12px}
+  .col{max-width:560px;margin:0 auto}
+
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .round{
+    width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+    background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid var(--hairline);font-size:16px;text-decoration:none;
+  }
+  .sim-badge{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:12px;font-weight:800;letter-spacing:.1em;
+    color:#FBBF24;border:1px solid rgba(251,191,36,.45);border-radius:999px;
+    padding:7px 13px;background:rgba(251,191,36,.08);
+  }
+  .sim-badge .dot{width:7px;height:7px;border-radius:50%;background:#FBBF24}
+
+  h1{font-size:clamp(26px,6.8vw,32px);font-weight:800;letter-spacing:-.02em;line-height:1.15;margin-bottom:6px}
+  .sub{color:var(--ink-2);font-size:16px;margin-bottom:16px;max-width:46ch}
+  .sub b{color:var(--ink)}
+
+  .card{
+    background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border:1px solid var(--hairline);border-radius:24px;
+    padding:18px 16px;margin-bottom:14px;
+    transition:border-color .6s ease, background-color .6s ease;
+  }
+
+  /* search */
+  .searchbar{
+    display:flex;align-items:center;gap:10px;
+    background:rgba(10,13,20,.7);border:1px solid var(--hairline);border-radius:16px;
+    padding:0 14px;height:54px;margin-bottom:12px;
+  }
+  .searchbar svg{flex:none;opacity:.7}
+  .searchbar input{
+    flex:1;background:none;border:0;color:var(--ink);font:17px system-ui,sans-serif;min-width:0;
+  }
+  .searchbar input::placeholder{color:var(--muted)}
+  .searchbar input:focus{outline:none}
+  .run{
+    width:100%;min-height:56px;border-radius:16px;
+    background:var(--accent);color:#fff;font-size:19px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;gap:9px;
+  }
+  .run:active{transform:translateY(1px)}
+  .search-note{font-size:13px;color:var(--muted);margin-top:10px;text-align:center}
+
+  /* loading */
+  .loading{display:none;text-align:center;padding:26px 16px}
+  .loading.show{display:block}
+  .spinner{
+    width:52px;height:52px;border-radius:50%;margin:0 auto 16px;
+    border:5px solid rgba(255,255,255,.12);border-top-color:var(--accent);
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .load-line{font-size:17px;font-weight:700;min-height:26px}
+  .load-bar{height:8px;border-radius:4px;background:rgba(255,255,255,.08);margin-top:16px;overflow:hidden}
+  .load-fill{height:100%;width:0%;border-radius:4px;background:var(--accent);transition:width .35s ease}
+
+  /* results */
+  #results{display:none}
+  #results.show{display:block}
+
+  .status-card{border-width:2px}
+  body:not(.good) .status-card{border-color:rgba(239,68,68,.55);animation:hazard 1.6s ease-in-out infinite}
+  body.good .status-card{border-color:rgba(34,197,94,.55);animation:none}
+  @keyframes hazard{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}50%{box-shadow:0 0 26px -4px rgba(239,68,68,.45)}}
+  .status-line{display:flex;align-items:center;gap:12px}
+  .status-icon{flex:none;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--bad-dim)}
+  body.good .status-icon{background:var(--good-dim)}
+  .status-title{font-size:21px;font-weight:800;letter-spacing:-.01em;color:var(--bad)}
+  body.good .status-title{color:var(--good)}
+  .status-sub{font-size:14px;color:var(--muted);margin-top:2px}
+
+  .stage-wrap{position:relative;height:236px;border-radius:18px;background:#080B12;border:1px solid var(--hairline);overflow:hidden;margin-top:4px}
+  .stage-wrap canvas{position:absolute;inset:0;width:100%;height:100%}
+  .home-chip{
+    position:absolute;display:grid;place-items:center;
+    background:#1D2636;border:1.5px solid rgba(255,255,255,.25);border-radius:9px;
+    font-size:10.5px;font-weight:800;color:var(--ink-2);pointer-events:none;
+  }
+  .home-chip.you{background:#0F1A2E;border-color:var(--ink);color:var(--ink)}
+  .stage-lab{position:absolute;left:12px;bottom:8px;font-size:12px;font-weight:700;color:var(--muted)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .callout{
+    border-radius:20px;padding:14px;border:1px solid var(--hairline);
+    background:rgba(10,13,20,.55);
+    transition:border-color .6s ease;
+  }
+  body:not(.good) .callout.hot{border-color:rgba(239,68,68,.4)}
+  body.good .callout.hot{border-color:rgba(34,197,94,.4)}
+  .callout .lab{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;min-height:32px}
+  .callout .lab svg{flex:none}
+  .callout .num{font-size:clamp(26px,7.4vw,34px);font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:2px 0 4px}
+  .callout .num.bad{color:var(--bad)} .callout .num.good{color:var(--good)}
+  .callout .sub{font-size:13px;color:var(--muted);line-height:1.45}
+  .callout .sub b{color:var(--ink-2)}
+
+  .waste{grid-column:1/-1}
+  .bill-chips{display:flex;gap:8px;margin:10px 0 4px}
+  .bchip{
+    flex:1;min-height:44px;border-radius:12px;font-size:16px;font-weight:800;
+    background:rgba(255,255,255,.06);border:1.5px solid var(--hairline);color:var(--ink-2);
+  }
+  .bchip[aria-pressed="true"]{background:var(--ink);color:#0B0E14;border-color:var(--ink)}
+
+  /* the big fix switch */
+  .fixbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    padding:12px 16px calc(14px + env(safe-area-inset-bottom));
+    background:rgba(5,6,8,.8);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border-top:1px solid var(--hairline);
+  }
+  .fix{
+    max-width:560px;margin:0 auto;width:100%;min-height:66px;border-radius:22px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 14px 12px 18px;
+    background:var(--card-solid);border:2px solid var(--hairline);
+    font-size:18px;font-weight:800;text-align:left;line-height:1.25;
+    transition:border-color .5s ease;
+  }
+  .fix:active{transform:translateY(1px)}
+  .fix .knob-track{
+    flex:none;width:58px;height:34px;border-radius:17px;position:relative;
+    background:rgba(255,255,255,.14);transition:background .4s ease;
+  }
+  .fix .knob{
+    position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;
+    background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4);transition:transform .35s cubic-bezier(.3,1.4,.5,1);
+  }
+  .fix[aria-pressed="true"]{border-color:rgba(34,197,94,.6)}
+  .fix[aria-pressed="true"] .knob-track{background:var(--good)}
+  .fix[aria-pressed="true"] .knob{transform:translateX(24px)}
+
+  .links{display:flex;gap:10px;margin-top:4px}
+  .linkbtn{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    min-height:50px;border-radius:16px;text-decoration:none;text-align:center;
+    font-size:15px;font-weight:700;padding:10px;
+    background:var(--card);border:1px solid var(--hairline);
+  }
+  footer{margin-top:16px}
+  footer p{font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:6px}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="col">
+
+  <div class="top">
+    <a class="round" href="index.html" aria-label="Back to the main demo">✕</a>
+    <span class="sim-badge"><span class="dot"></span>SIMULATION</span>
+  </div>
+
+  <h1>Infrastructure Node Diagnostic</h1>
+  <p class="sub">A <b>simulation</b> of what a typical shared cable node looks like at 7 PM — and what a dedicated fiber line changes. Nothing is scanned; the address is only a label for the demo.</p>
+
+  <section class="card" id="searchCard">
+    <div class="searchbar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+      <input id="addr" type="text" inputmode="text" autocomplete="street-address"
+        placeholder="Street address (demo label only)" aria-label="Street address, used only as a demo label">
+    </div>
+    <button class="run" id="runBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+      Run the Simulated Diagnostic
+    </button>
+    <p class="search-note">Simulates a typical shared copper node at evening peak — not a live scan of any address.</p>
+    <div class="loading" id="loading" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="load-line" id="loadLine">Loading a typical shared copper node…</p>
+      <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
+    </div>
+  </section>
+
+  <div id="results">
+    <section class="card status-card" aria-live="polite">
+      <div class="status-line">
+        <span class="status-icon" id="statusIcon"></span>
+        <span>
+          <span class="status-title" id="statusTitle">SEVERE EVENING BOTTLENECK</span>
+          <span class="status-sub" id="statusSub">Typical shared-node profile · 7:00 PM</span>
+        </span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="stage-wrap" id="stage">
+        <canvas id="cv" role="img"></canvas>
+        <span class="stage-lab" id="stageLab">One trunk → 5 homes</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="grid2">
+        <div class="callout hot">
+          <p class="lab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="4" width="20" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span id="loadLab1">Devices at peak</span></p>
+          <p class="num" id="numDevices">≈47</p>
+          <p class="sub" id="subDevices"><b>Typical</b> for one shared loop at 7 PM — about 9 screens per home.</p>
+        </div>
+        <div class="callout hot">
+          <p class="lab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg><span>Upload vs download</span></p>
+          <p class="num" id="numUp">4%</p>
+          <p class="sub" id="subUp">20 Mbps up on a 500 Mbps plan — sending is the choke point.</p>
+        </div>
+        <div class="callout hot">
+          <p class="lab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>Peak-hour delivery</span></p>
+          <p class="num bad" id="numPeak">28%</p>
+          <p class="sub" id="subPeak">of advertised speed, 7–9 PM, in this shared-node model.</p>
+        </div>
+        <div class="callout hot">
+          <p class="lab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M17 6.5C17 4.6 14.8 3 12 3S7 4.6 7 6.5 9.2 10 12 10s5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></svg><span>Symmetry</span></p>
+          <p class="num bad" id="numSym">1 : 25</p>
+          <p class="sub" id="subSym">Download : upload ratio on the shared pipe.</p>
+        </div>
+        <div class="callout hot waste">
+          <p class="lab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-6 4 3 5-8"/></svg><span>Estimated peak-hour waste</span></p>
+          <p class="num bad" id="numWaste">$72<span style="font-size:.55em">/mo</span></p>
+          <p class="sub" id="subWaste">Paying for 100%, receiving ~28% at 7 PM → about <b>$72 of a $100 bill</b> not delivered during the hours you actually use it. Illustrative: bill × (1 − delivered share).</p>
+          <div class="bill-chips" id="billChips" role="group" aria-label="Pick your monthly bill"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="links">
+      <a class="linkbtn" href="index.html">Full demo →</a>
+      <a class="linkbtn" href="neighborhood.html">Neighborhood sim →</a>
+    </div>
+  </div>
+
+  <footer>
+    <p><b style="color:var(--ink-2)">Simulation, not a scan.</b> Figures are typical/illustrative for a shared cable node at evening peak (28% delivery matches this site's congestion model; 20/500 Mbps reflects common plan asymmetry). No network measurement of any address is performed. Not an official page of any provider; names are trademarks of their owners.</p>
+  </footer>
+</div>
+
+<div class="fixbar">
+  <button class="fix" id="fixBtn" aria-pressed="false" disabled>
+    <span id="fixLabel">Simulate Dedicated Fiber Grid</span>
+    <span class="knob-track" aria-hidden="true"><span class="knob"></span></span>
+  </button>
+</div>
+
+<script>
+/* ============ brand (name only) ============ */
+const DBRANDS = { brightspeed:"Brightspeed Fiber", tmobile:"T-Mobile Fiber" };
+let brandName = "Brightspeed Fiber";
+try {
+  const q = new URLSearchParams(location.search).get("brand");
+  const k = (q || localStorage.getItem("fiberBrand") || "brightspeed").toLowerCase();
+  if (DBRANDS[k]){ brandName = DBRANDS[k]; localStorage.setItem("fiberBrand", k); }
+} catch(e){}
+
+const $ = s => document.querySelector(s);
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+const PEAK_SHARE = .28;
+let bill = 100, good = false, scanned = false;
+
+/* ============ icons for the status card ============ */
+const ICON_WARN = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>`;
+const ICON_OK = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-6"/></svg>`;
+
+/* ============ canvas: trunk-split vs parallel beams, crossfaded ============ */
+const stage = $("#stage"), cv = $("#cv"), ctx = cv.getContext("2d");
+let W=0,H=0, mix=0, target=0;         // 0 = cable hazard, 1 = fiber grid
+let cablePaths=[], fiberPaths=[], particles=[], acc=0, accU=0, tGlow=0;
+
+function quad(a,c,b,N=22){
+  const o=[]; for(let i=0;i<=N;i++){const t=i/N,u=1-t;
+    o.push({x:u*u*a.x+2*u*t*c.x+t*t*b.x, y:u*u*a.y+2*u*t*c.y+t*t*b.y});}
+  return o;
+}
+function mkPath(pts){
+  const cum=[0];
+  for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+  return {pts,cum,len:cum[cum.length-1]};
+}
+function pointAt(P,s){
+  s=Math.max(0,Math.min(P.len,s));
+  let i=1; while(P.cum[i]<s) i++;
+  const t=(s-P.cum[i-1])/((P.cum[i]-P.cum[i-1])||1);
+  return {x:lerp(P.pts[i-1].x,P.pts[i].x,t), y:lerp(P.pts[i-1].y,P.pts[i].y,t)};
+}
+function buildLayout(){
+  W = stage.clientWidth; H = stage.clientHeight;
+  const dpr = Math.min(2.5, window.devicePixelRatio||1);
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  stage.querySelectorAll(".home-chip").forEach(n=>n.remove());
+  cablePaths=[]; fiberPaths=[];
+  const cy = H/2, sx = W*.52;
+  const ys = [0,1,2,3,4].map(i=>lerp(28, H-28, i/4));
+  ys.forEach((y,i)=>{
+    const you = i===4;
+    const cw = you?52:40, ch = you?24:20;
+    const d = document.createElement("div");
+    d.className = "home-chip"+(you?" you":"");
+    d.style.cssText = `right:8px;top:${y-ch/2}px;width:${cw}px;height:${ch}px`;
+    d.textContent = you ? "YOU" : "Home";
+    stage.append(d);
+    const bx = W-14-cw;
+    const P = mkPath([{x:16,y:cy}, ...quad({x:sx,y:cy},{x:sx+30,y:lerp(cy,y,.85)},{x:bx,y})]);
+    P.trunkLen = sx-16; cablePaths.push(P);
+    fiberPaths.push(mkPath([{x:16,y},{x:bx,y}]));
+  });
+  reseed();
+}
+function reseed(){
+  particles=[]; acc=.8; accU=.3;
+  for(let i=0;i<70;i++) step(.06);
+  draw();
+}
+function speeds(){ const k=(W-80)/300; return {trunk:34*k, branch:110*k, fiber:130*k, up:120*k}; }
+function step(dt){
+  const r = target===0 ? {d:9,u:0} : {d:5.5,u:2.8};
+  acc+=r.d*dt; accU+=r.u*dt;
+  while(acc>=1){ acc--; spawn(+1); }
+  while(accU>=1){ accU--; spawn(-1); }
+  const sp = speeds();
+  const keep=[];
+  for(const q of particles){
+    let v;
+    if (q.net===1) v = sp.fiber;
+    else v = q.s < q.path.trunkLen ? sp.trunk*(0.55+0.45*Math.abs(Math.sin(q.s/20+q.seed))) : sp.branch;
+    q.s += v*q.dir*dt;
+    if (q.dir>0 ? q.s<q.path.len : q.s>0) keep.push(q);
+  }
+  particles = keep;
+}
+function spawn(dir){
+  if (particles.length>150) return;
+  const net = target;
+  const paths = net===0 ? cablePaths : fiberPaths;
+  const path = paths[(Math.random()*paths.length)|0];
+  particles.push({path, net, dir, seed:Math.random()*7, j:(Math.random()*2-1)*3, s: dir>0?0:path.len});
+}
+function drawScene(which, alpha){
+  if (alpha<=0.01) return;
+  ctx.globalAlpha = alpha;
+  const cy = H/2, sx = W*.52;
+  if (which===0){
+    const pulse = reduced ? .5 : (Math.sin(tGlow*2.6)+1)/2;
+    ctx.lineCap="round";
+    ctx.strokeStyle = `rgba(239,68,68,${.14+.2*pulse})`; ctx.lineWidth = 26;
+    ctx.beginPath(); ctx.moveTo(16,cy); ctx.lineTo(sx,cy); ctx.stroke();
+    ctx.strokeStyle = "#232B3B"; ctx.lineWidth = 16;
+    ctx.beginPath(); ctx.moveTo(16,cy); ctx.lineTo(sx,cy); ctx.stroke();
+    ctx.strokeStyle = `rgba(239,68,68,${.5+.3*pulse})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(16,cy); ctx.lineTo(sx,cy); ctx.stroke();
+    ctx.lineWidth = 7; ctx.strokeStyle = "#232B3B";
+    for(const P of cablePaths){
+      ctx.beginPath();
+      P.pts.slice(1).forEach((pt,i)=> i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));
+      ctx.stroke();
+    }
+  } else {
+    for(const P of fiberPaths){
+      ctx.lineCap="round";
+      ctx.strokeStyle = "rgba(34,197,94,.16)"; ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.moveTo(P.pts[0].x,P.pts[0].y); ctx.lineTo(P.pts[P.pts.length-1].x,P.pts[P.pts.length-1].y); ctx.stroke();
+      ctx.strokeStyle = "#1B2A3C"; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(P.pts[0].x,P.pts[0].y); ctx.lineTo(P.pts[P.pts.length-1].x,P.pts[P.pts.length-1].y); ctx.stroke();
+      ctx.strokeStyle = "rgba(34,197,94,.55)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(P.pts[0].x,P.pts[0].y); ctx.lineTo(P.pts[P.pts.length-1].x,P.pts[P.pts.length-1].y); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  drawScene(0, 1-mix);
+  drawScene(1, mix);
+  for(const q of particles){
+    const pt = pointAt(q.path, q.s);
+    const y = pt.y + (q.net===0 && q.s<q.path.trunkLen ? q.j : 0);
+    const col = q.net===0 ? "#EF4444" : "#22D3EE";
+    ctx.fillStyle = col;
+    ctx.globalAlpha = (q.net===0 ? 1-mix : mix)*.22;
+    ctx.beginPath(); ctx.arc(pt.x,y,6.4,0,7); ctx.fill();
+    ctx.globalAlpha = (q.net===0 ? 1-mix : mix);
+    ctx.beginPath(); ctx.arc(pt.x,y,3.6,0,7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+let raf=0,last=0,running=false;
+function frame(now){
+  if(!running){raf=0;return}
+  const dt = Math.min(.05,(now-last)/1000)||.016; last=now;
+  tGlow += dt;
+  mix += (target-mix)*Math.min(1,dt*4.5);
+  if (Math.abs(target-mix)<.005) mix = target;
+  step(dt); draw();
+  raf = requestAnimationFrame(frame);
+}
+function setRunning(on){
+  on = on && !document.hidden && !reduced && scanned;
+  if(on===running) return;
+  running = on;
+  if(on){ last=performance.now(); raf=requestAnimationFrame(frame); }
+}
+document.addEventListener("visibilitychange", ()=>setRunning(true));
+if ("ResizeObserver" in window)
+  new ResizeObserver(()=>{ if(scanned && stage.clientWidth!==W){ buildLayout(); draw(); } }).observe(stage);
+
+/* ============ diagnostic flow ============ */
+const LOAD_LINES = [
+  "Loading a typical shared copper node…",
+  "Modeling evening neighborhood traffic…",
+  "Estimating peak-hour delays…",
+];
+function runDiagnostic(){
+  const addr = $("#addr").value.trim();
+  const label = addr ? addr : "your street";
+  $("#runBtn").disabled = true;
+  $("#results").classList.remove("show");
+  $("#fixBtn").disabled = true;
+  const loading = $("#loading"), line = $("#loadLine"), fill = $("#loadFill");
+  loading.classList.add("show");
+  const stepMs = reduced ? 140 : 1000;
+  LOAD_LINES.forEach((t,i)=>setTimeout(()=>{ line.textContent = t; fill.style.width = ((i+1)/3*100)+"%"; }, i*stepMs));
+  setTimeout(()=>{
+    loading.classList.remove("show");
+    $("#runBtn").disabled = false;
+    scanned = true;
+    good = false; target = 0; mix = 0;
+    document.body.classList.remove("good");
+    $("#fixBtn").disabled = false;
+    $("#fixBtn").setAttribute("aria-pressed","false");
+    $("#fixLabel").textContent = "Simulate Dedicated Fiber Grid";
+    $("#results").classList.add("show");
+    renderState(label);
+    buildLayout();
+    setRunning(true);
+    $("#results").scrollIntoView({behavior: reduced?"auto":"smooth", block:"start"});
+  }, stepMs*3 + 150);
+}
+$("#runBtn").addEventListener("click", runDiagnostic);
+$("#addr").addEventListener("keydown", e=>{ if(e.key==="Enter") runDiagnostic(); });
+
+function renderState(label){
+  const echo = label || "your street";
+  if (!good){
+    $("#statusIcon").innerHTML = ICON_WARN;
+    $("#statusTitle").textContent = "SEVERE EVENING BOTTLENECK";
+    $("#statusSub").textContent = `Typical shared-node profile · 7:00 PM · demo for ${echo}`;
+    $("#stageLab").textContent = "One trunk → 5 homes";
+    $("#numDevices").textContent = "≈47";
+    $("#subDevices").innerHTML = "<b>Typical</b> for one shared loop at 7 PM — about 9 screens per home.";
+    $("#numUp").textContent = "4%"; $("#numUp").className="num bad";
+    $("#subUp").textContent = "20 Mbps up on a 500 Mbps plan — sending is the choke point.";
+    $("#numPeak").textContent = "28%"; $("#numPeak").className="num bad";
+    $("#subPeak").textContent = "of advertised speed, 7–9 PM, in this shared-node model.";
+    $("#numSym").textContent = "1 : 25"; $("#numSym").className="num bad";
+    $("#subSym").textContent = "Download : upload ratio on the shared pipe.";
+    renderWaste();
+  } else {
+    $("#statusIcon").innerHTML = ICON_OK;
+    $("#statusTitle").textContent = "ZERO CONGESTION";
+    $("#statusSub").textContent = `Dedicated fiber grid · ${brandName} · any hour`;
+    $("#stageLab").textContent = "Five dedicated lines — no sharing";
+    $("#numDevices").textContent = "Yours";
+    $("#subDevices").innerHTML = "<b>Architecture:</b> a 100% dedicated connection — the neighbors' screens ride their own lines.";
+    $("#numUp").textContent = "100%"; $("#numUp").className="num good";
+    $("#subUp").textContent = "Symmetry: matched upload and download speeds.";
+    $("#numPeak").textContent = "100%"; $("#numPeak").className="num good";
+    $("#subPeak").textContent = "of advertised speed — 7 PM behaves like 7 AM.";
+    $("#numSym").textContent = "1 : 1"; $("#numSym").className="num good";
+    $("#subSym").textContent = "Download : upload. Sending is as fast as receiving.";
+    renderWaste();
+  }
+  cv.setAttribute("aria-label", good
+    ? "Diagram: five separate fiber lines, one per home, all flowing smoothly with no shared segment."
+    : "Diagram: one shared copper trunk, pulsing red, splitting into five struggling lines. Packets stutter and pile up on the trunk.");
+}
+function renderWaste(){
+  const lost = Math.round(bill*(1-PEAK_SHARE));
+  if (!good){
+    $("#numWaste").innerHTML = `$${lost}<span style="font-size:.55em">/mo</span>`;
+    $("#numWaste").className="num bad";
+    $("#subWaste").innerHTML = `Paying for 100%, receiving ~${Math.round(PEAK_SHARE*100)}% at 7 PM → about <b>$${lost} of a $${bill} bill</b> not delivered during the hours you actually use it. Illustrative: bill × (1 − delivered share).`;
+  } else {
+    $("#numWaste").innerHTML = `$0<span style="font-size:.55em">/mo</span>`;
+    $("#numWaste").className="num good";
+    $("#subWaste").innerHTML = `On a dedicated line you receive what you pay for at peak — the same $${bill} buys <b>$${bill} of delivered speed</b>. Illustrative: bill × (1 − delivered share).`;
+  }
+}
+{
+  const box = $("#billChips");
+  [60,80,100,120].forEach(b=>{
+    const el = document.createElement("button");
+    el.className="bchip"; el.textContent="$"+b;
+    el.setAttribute("aria-pressed", String(b===bill));
+    el.addEventListener("click", ()=>{
+      bill=b;
+      box.querySelectorAll(".bchip").forEach(c=>c.setAttribute("aria-pressed","false"));
+      el.setAttribute("aria-pressed","true");
+      renderWaste();
+    });
+    box.append(el);
+  });
+}
+
+/* ============ the fix switch ============ */
+$("#fixBtn").addEventListener("click", ()=>{
+  good = !good;
+  target = good ? 1 : 0;
+  document.body.classList.toggle("good", good);
+  $("#fixBtn").setAttribute("aria-pressed", String(good));
+  $("#fixLabel").textContent = good ? "Back to the shared cable node" : "Simulate Dedicated Fiber Grid";
+  renderState($("#addr").value.trim());
+  if (reduced){ mix = target; reseed(); }
+});
+
+/* offline: cache the whole demo site once loaded */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http"))
+  addEventListener("load", ()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
