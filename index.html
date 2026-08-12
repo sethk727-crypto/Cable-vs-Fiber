@@ -724,8 +724,10 @@ const CONFIG = {
    Marks are colorblind-validated against Spectrum blue. The choice persists on the
    device and is shared with capacity.html. */
 const BRANDS = {
-  brightspeed: { key:"brightspeed", name:"Brightspeed Fiber", mark:"#c98500", chrome:"#ffc800", chromeInk:"#191100" },
-  tmobile:     { key:"tmobile",     name:"T-Mobile Fiber",    mark:"#e20074", chrome:"#e20074", chromeInk:"#ffffff" },
+  brightspeed: { key:"brightspeed", name:"Brightspeed Fiber", mark:"#c98500", chrome:"#ffc800", chromeInk:"#191100",
+                 url:"https://www.brightspeed.com/" },
+  tmobile:     { key:"tmobile",     name:"T-Mobile Fiber",    mark:"#e20074", chrome:"#e20074", chromeInk:"#ffffff",
+                 url:"https://www.t-mobile.com/home-internet/fiber" },
 };
 const BRAND = (()=>{ try{
   const q = new URLSearchParams(location.search).get("brand");
@@ -740,6 +742,9 @@ document.documentElement.style.setProperty("--brand-ink", BRAND.chromeInk);
 CONFIG.fiber.name = BRAND.name;
 CONFIG.marketLabel = `${BRAND.name} vs ${CONFIG.cable.name}`;
 CONFIG.ctas.smsBody = CONFIG.ctas.smsBody.replace("Brightspeed fiber rep", BRAND.name + " rep");
+// brand-aware CTA: the address check follows the selected fiber brand's site,
+// unless the rep pasted a custom link into CONFIG.ctas.checkUrl above
+if (CONFIG.ctas.checkUrl === "https://www.brightspeed.com/") CONFIG.ctas.checkUrl = BRAND.url;
 
 /* ===================== helpers ===================== */
 const $ = s => document.querySelector(s);
